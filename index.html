@@ -1,0 +1,2056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Card Vault</title>
+<style>
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:        #0a0e1a;
+  --surface:   #111827;
+  --surface2:  #1e293b;
+  --border:    #2d3748;
+  --accent:    #e94560;
+  --accent2:   #f59e0b;
+  --text:      #f0f0f0;
+  --text2:     #94a3b8;
+  --text3:     #4b5563;
+  --green:     #10b981;
+  --blue:      #3b82f6;
+  --purple:    #8b5cf6;
+  --radius:    8px;
+  --sidebar-w: 220px;
+  --detail-w:  340px;
+}
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+button { cursor: pointer; font-family: inherit; }
+input, select, textarea { font-family: inherit; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* ── App Shell ── */
+#app { display: flex; height: 100vh; overflow: hidden; }
+
+/* ── Sidebar ── */
+#sidebar {
+  width: var(--sidebar-w);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+#logo {
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid var(--border);
+}
+#logo h1 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.5px;
+}
+#logo p { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+.nav-section { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.nav-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--text3);
+  text-transform: uppercase;
+  padding: 4px 16px 6px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  color: var(--text2);
+  cursor: pointer;
+  border-radius: 0;
+  transition: background 0.1s, color 0.1s;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font-size: 13px;
+}
+.nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item.active { background: var(--surface2); color: var(--accent); border-left: 2px solid var(--accent); }
+.nav-item .icon { width: 16px; text-align: center; flex-shrink: 0; }
+.nav-badge {
+  margin-left: auto;
+  background: var(--surface2);
+  color: var(--text3);
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  min-width: 20px;
+  text-align: center;
+}
+.nav-item.active .nav-badge { background: var(--accent); color: #fff; }
+
+#sidebar-stats {
+  margin-top: auto;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text3);
+  line-height: 1.8;
+}
+#sidebar-stats span { color: var(--text2); font-weight: 600; }
+
+/* ── Main Content ── */
+#main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── Top Bar ── */
+#topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+#page-title { font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; }
+#search-wrap { flex: 1; min-width: 180px; position: relative; }
+#search-wrap .search-icon {
+  position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+  color: var(--text3); pointer-events: none; font-size: 13px;
+}
+#searchInput {
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+#searchInput:focus { border-color: var(--accent); }
+.filter-select {
+  padding: 6px 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+}
+.filter-select:focus { border-color: var(--accent); }
+#topbar-actions { display: flex; gap: 8px; margin-left: auto; }
+.btn {
+  padding: 6px 14px;
+  border-radius: var(--radius);
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  transition: opacity 0.15s;
+}
+.btn:hover { opacity: 0.85; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-secondary { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+.btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); }
+.btn-sm { padding: 4px 10px; font-size: 11px; }
+.btn-danger { background: #7f1d1d; color: #fca5a5; border: 1px solid #991b1b; }
+
+/* ── Content Area ── */
+#content-area { flex: 1; display: flex; overflow: hidden; }
+
+/* ── Pages ── */
+.page { display: none; flex: 1; overflow: hidden; }
+.page.active { display: flex; }
+
+/* ── Browse Page ── */
+#browse-page { flex-direction: row; }
+
+#grid-pane {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+}
+#card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+.card-tile {
+  background: var(--surface);
+  border: 2px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  overflow: hidden;
+  position: relative;
+}
+.card-tile:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(233,69,96,0.2); }
+.card-tile.selected { border-color: var(--accent); background: #1a0d12; }
+.card-tile img {
+  width: 100%; display: block;
+  border-radius: 8px 8px 0 0;
+  background: var(--surface2);
+  min-height: 85px;
+  object-fit: cover;
+}
+.card-tile .img-ph {
+  width: 100%; min-height: 85px;
+  background: var(--surface2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px; border-radius: 8px 8px 0 0;
+  color: var(--text3);
+}
+.tile-info { padding: 5px 7px 7px; }
+.tile-name { font-size: 10px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile-meta { font-size: 9px; color: var(--text3); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qty-badge {
+  position: absolute; top: 5px; right: 5px;
+  background: var(--accent); color: #fff;
+  font-size: 9px; font-weight: 700;
+  padding: 1px 5px; border-radius: 8px;
+  min-width: 16px; text-align: center;
+}
+.qty-badge.dim { background: var(--surface2); color: var(--text3); border: 1px solid var(--border); }
+.new-badge {
+  position: absolute; top: 5px; left: 5px;
+  background: var(--accent2); color: #000;
+  font-size: 8px; font-weight: 700;
+  padding: 1px 4px; border-radius: 4px;
+}
+#empty-state {
+  grid-column: 1/-1;
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text3);
+}
+#empty-state .empty-icon { font-size: 40px; margin-bottom: 12px; }
+#empty-state p { font-size: 14px; }
+
+/* ── Detail Panel ── */
+#detail-pane {
+  width: var(--detail-w);
+  min-width: 260px;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: width 0.2s;
+}
+#detail-pane.closed { width: 0; min-width: 0; border: none; }
+#detail-inner { flex: 1; overflow-y: auto; padding: 14px; }
+#detail-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text3); font-size: 13px; text-align: center; padding: 20px; }
+
+#detail-img-wrap { position: relative; margin-bottom: 12px; }
+#detail-img { width: 100%; border-radius: 8px; display: block; }
+#detail-img.hidden { display: none; }
+#detail-img-ph { width: 100%; height: 180px; background: var(--surface2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 48px; }
+#detail-img-ph.hidden { display: none; }
+
+#detail-name { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+#detail-set { font-size: 11px; color: var(--text3); margin-bottom: 8px; }
+#detail-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+.tag {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 8px; border-radius: 4px;
+  font-size: 10px; font-weight: 600;
+  border: 1px solid;
+}
+.tag-fire     { background: #1c0a00; color: #fb923c; border-color: #7c2d12; }
+.tag-water    { background: #001830; color: #60a5fa; border-color: #1e3a5f; }
+.tag-grass    { background: #001800; color: #4ade80; border-color: #14532d; }
+.tag-lightning{ background: #1a1400; color: #fbbf24; border-color: #713f12; }
+.tag-psychic  { background: #1a001a; color: #c084fc; border-color: #581c87; }
+.tag-fighting { background: #1c1000; color: #fb923c; border-color: #78350f; }
+.tag-darkness { background: #0d0d1a; color: #a78bfa; border-color: #3730a3; }
+.tag-metal    { background: #111827; color: #cbd5e1; border-color: #475569; }
+.tag-dragon   { background: #000d1a; color: #67e8f9; border-color: #0e7490; }
+.tag-fairy    { background: #1a0d1a; color: #f9a8d4; border-color: #831843; }
+.tag-colorless{ background: #111; color: #9ca3af; border-color: #374151; }
+.tag-pokemon  { background: #1a0d00; color: #fbbf24; border-color: #92400e; }
+.tag-trainer  { background: #001a1a; color: #2dd4bf; border-color: #0f766e; }
+.tag-energy   { background: #001a00; color: #4ade80; border-color: #166534; }
+.tag-neutral  { background: var(--surface2); color: var(--text2); border-color: var(--border); }
+
+/* Address badge — the shelf label */
+#address-badge {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#address-badge .badge-icon { font-size: 16px; flex-shrink: 0; }
+#address-badge .badge-body { flex: 1; min-width: 0; }
+#address-badge .badge-label { font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; }
+#address-badge .badge-addr {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 13px; font-weight: 700;
+  color: var(--accent2);
+  letter-spacing: 1px;
+}
+#address-badge .badge-addr.unset { color: var(--text3); font-style: italic; font-size: 11px; }
+
+.detail-section-label {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.5px;
+  color: var(--text3); text-transform: uppercase;
+  margin: 12px 0 6px;
+}
+
+/* Copies table */
+.copies-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.copies-table th {
+  background: var(--surface2); color: var(--text3);
+  padding: 5px 6px; text-align: left; font-weight: 600;
+  font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.copies-table td { padding: 6px 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.copies-table tr:hover td { background: var(--surface2); }
+.copy-cb { accent-color: var(--accent); width: 13px; height: 13px; cursor: pointer; }
+
+.status-pill {
+  display: inline-block; padding: 1px 7px; border-radius: 8px;
+  font-size: 9px; font-weight: 700; white-space: nowrap;
+}
+.sp-available { background: #022c22; color: #10b981; border: 1px solid #065f46; }
+.sp-deck      { background: #1e1b4b; color: #818cf8; border: 1px solid #3730a3; }
+.sp-binder    { background: #1e1040; color: #c084fc; border: 1px solid #6d28d9; }
+.sp-traded    { background: #1c1917; color: #78716c; border: 1px solid #44403c; }
+.sp-gave      { background: #1c1917; color: #78716c; border: 1px solid #44403c; }
+
+#detail-actions {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+}
+#move-btn {
+  flex: 1; padding: 8px; background: var(--accent);
+  color: #fff; border: none; border-radius: var(--radius);
+  font-size: 12px; font-weight: 700;
+  transition: opacity 0.15s;
+}
+#move-btn:disabled { background: var(--surface2); color: var(--text3); cursor: not-allowed; }
+
+/* ── Full-page panels ── */
+.panel-page {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  flex-direction: column;
+}
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.panel-header h2 { font-size: 16px; font-weight: 700; }
+
+/* ── Import Page ── */
+#import-page { flex-direction: column; }
+#import-inner { flex: 1; overflow-y: auto; padding: 20px; max-width: 780px; }
+.import-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 30px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  margin-bottom: 16px;
+}
+.import-zone:hover, .import-zone.dragover { border-color: var(--accent); background: #1a0d12; }
+.import-zone .zone-icon { font-size: 32px; margin-bottom: 8px; }
+.import-zone p { color: var(--text2); font-size: 13px; }
+.import-zone small { color: var(--text3); font-size: 11px; }
+#import-preview { margin-top: 16px; }
+.preview-table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); }
+.data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.data-table th { background: var(--surface2); padding: 8px 10px; text-align: left; font-weight: 600; color: var(--text2); font-size: 11px; white-space: nowrap; }
+.data-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); color: var(--text); }
+.data-table tr:hover td { background: var(--surface2); }
+.data-table tr:last-child td { border-bottom: none; }
+.row-new td { background: rgba(245,158,11,0.05); }
+.row-new td:first-child { border-left: 2px solid var(--accent2); }
+.import-actions { display: flex; gap: 10px; margin-top: 14px; align-items: center; }
+#import-summary { font-size: 12px; color: var(--text3); }
+
+/* Filing list */
+#filing-page { flex-direction: column; }
+#filing-inner { flex: 1; overflow-y: auto; padding: 20px; }
+.filing-group { margin-bottom: 20px; }
+.filing-group-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  background: var(--surface2);
+  border-radius: var(--radius) var(--radius) 0 0;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  font-weight: 700; font-size: 13px;
+}
+.filing-group-header .loc-badge {
+  font-family: monospace; font-size: 12px; font-weight: 700;
+  color: var(--accent2); background: var(--surface); padding: 2px 8px; border-radius: 4px;
+  border: 1px solid var(--border);
+}
+.filing-group-header .count { margin-left: auto; color: var(--text3); font-size: 11px; font-weight: 400; }
+.filing-list { border: 1px solid var(--border); border-radius: 0 0 var(--radius) var(--radius); overflow: hidden; }
+.filing-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.filing-item:last-child { border-bottom: none; }
+.filing-item:nth-child(even) { background: rgba(255,255,255,0.02); }
+.filing-item .fi-name { flex: 1; font-weight: 600; }
+.filing-item .fi-set { color: var(--text3); font-size: 11px; }
+.filing-item .fi-num { font-family: monospace; font-size: 10px; color: var(--text3); background: var(--surface2); padding: 1px 5px; border-radius: 3px; }
+.filing-item .fi-variant { font-size: 10px; color: var(--text2); background: var(--surface2); padding: 1px 6px; border-radius: 3px; }
+.filing-confirm-btn { padding: 6px 12px; background: var(--green); color: #fff; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; }
+
+/* ── Locations / Decks / Binders pages ── */
+#locations-page, #decks-page, #binders-page { flex-direction: column; }
+.mgmt-inner { flex: 1; overflow-y: auto; padding: 20px; }
+.mgmt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-top: 14px; }
+.mgmt-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.mgmt-card-title { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+.mgmt-card-sub { font-size: 11px; color: var(--text3); margin-bottom: 10px; }
+.mgmt-card-rows { font-size: 11px; color: var(--text2); margin-bottom: 10px; line-height: 1.8; }
+.mgmt-card-actions { display: flex; gap: 6px; }
+.box-row-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 4px; padding: 2px 8px;
+  font-size: 10px; color: var(--text2); margin: 2px;
+}
+
+/* ── Modal ── */
+#modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7); z-index: 1000;
+  align-items: center; justify-content: center;
+}
+#modal-overlay.open { display: flex; }
+#modal-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  width: 440px; max-width: 95vw;
+  max-height: 90vh; overflow-y: auto;
+}
+#modal-box h3 { font-size: 15px; font-weight: 700; margin-bottom: 14px; color: var(--text); }
+.form-row { margin-bottom: 12px; }
+.form-label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px; }
+.form-input, .form-select, .form-textarea {
+  width: 100%; padding: 8px 10px;
+  background: var(--surface2); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  font-size: 13px; outline: none;
+  transition: border-color 0.15s;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--accent); }
+.form-textarea { resize: vertical; min-height: 70px; }
+.form-hint { font-size: 10px; color: var(--text3); margin-top: 3px; }
+.modal-actions { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+.modal-actions .btn { min-width: 80px; }
+
+/* Row builder */
+.row-builder { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-top: 6px; }
+.row-builder-header { background: var(--surface2); padding: 6px 10px; font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; display: flex; justify-content: space-between; align-items: center; }
+.row-entry { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid var(--border); }
+.row-entry:last-child { border-bottom: none; }
+.row-entry input, .row-entry select { flex: 1; }
+.row-entry .rm-btn { background: none; border: none; color: var(--text3); font-size: 14px; padding: 2px 4px; line-height: 1; }
+.row-entry .rm-btn:hover { color: var(--accent); }
+.add-row-btn { width: 100%; background: none; border: none; color: var(--text3); font-size: 11px; padding: 7px; text-align: center; }
+.add-row-btn:hover { color: var(--accent); background: var(--surface2); }
+
+/* Loading */
+#loading-screen {
+  position: fixed; inset: 0;
+  background: var(--bg);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  z-index: 9999;
+}
+#loading-screen.hidden { display: none; }
+.pokeball-loader {
+  width: 50px; height: 50px; border-radius: 50%;
+  background: linear-gradient(180deg, var(--accent) 50%, #fff 50%);
+  border: 3px solid var(--border);
+  position: relative;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+.pokeball-loader::before {
+  content: ''; position: absolute;
+  top: 50%; left: 0; right: 0; height: 3px;
+  background: var(--border); transform: translateY(-50%);
+}
+.pokeball-loader::after {
+  content: ''; position: absolute;
+  top: 50%; left: 50%; transform: translate(-50%,-50%);
+  width: 14px; height: 14px;
+  background: #fff; border-radius: 50%; border: 3px solid var(--border);
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#loading-msg { color: var(--text3); font-size: 13px; }
+
+/* Toast */
+#toast {
+  position: fixed; bottom: 20px; right: 20px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 10px 16px;
+  font-size: 13px; color: var(--text);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  transform: translateY(20px); opacity: 0;
+  transition: all 0.25s; z-index: 2000;
+  max-width: 320px;
+}
+#toast.show { transform: translateY(0); opacity: 1; }
+#toast.success { border-left: 3px solid var(--green); }
+#toast.error { border-left: 3px solid var(--accent); }
+#toast.info { border-left: 3px solid var(--blue); }
+
+/* Mobile */
+@media (max-width: 700px) {
+  #sidebar { display: none; }
+  #detail-pane { display: none; }
+  #card-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 8px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading-screen">
+  <div class="pokeball-loader"></div>
+  <div id="loading-msg">Loading Card Vault…</div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Modal -->
+<div id="modal-overlay">
+  <div id="modal-box">
+    <h3 id="modal-title">Dialog</h3>
+    <div id="modal-body"></div>
+    <div class="modal-actions" id="modal-actions"></div>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app">
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div id="logo">
+      <h1>Card Vault</h1>
+      <p>TCG Collection Manager</p>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Collection</div>
+      <button class="nav-item active" onclick="showPage('browse')" id="nav-browse">
+        <span class="icon">🃏</span> Browse
+        <span class="nav-badge" id="badge-browse">0</span>
+      </button>
+      <button class="nav-item" onclick="showPage('filing')" id="nav-filing">
+        <span class="icon">📋</span> Filing List
+        <span class="nav-badge" id="badge-filing">0</span>
+      </button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Import</div>
+      <button class="nav-item" onclick="showPage('import')" id="nav-import">
+        <span class="icon">📥</span> Import Collectr CSV
+      </button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Manage</div>
+      <button class="nav-item" onclick="showPage('locations')" id="nav-locations">
+        <span class="icon">📦</span> Boxes
+      </button>
+      <button class="nav-item" onclick="showPage('binders')" id="nav-binders">
+        <span class="icon">📒</span> Binders
+      </button>
+      <button class="nav-item" onclick="showPage('decks')" id="nav-decks">
+        <span class="icon">🎴</span> Decks
+      </button>
+    </div>
+
+    <div id="sidebar-stats">
+      <div>Unique cards: <span id="stat-unique">0</span></div>
+      <div>Total copies: <span id="stat-total">0</span></div>
+      <div>Unplaced: <span id="stat-unplaced">0</span></div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div id="main">
+    <!-- Topbar -->
+    <div id="topbar">
+      <div id="page-title">Browse Collection</div>
+      <div id="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input id="searchInput" type="text" placeholder="Search name, set, illustrator…" oninput="applyFilters()"/>
+      </div>
+      <select class="filter-select" id="filterGame" onchange="applyFilters()">
+        <option value="">All Games</option>
+        <option value="Pokemon">Pokémon</option>
+        <option value="Lorcana">Lorcana</option>
+        <option value="Magic: The Gathering">MTG</option>
+        <option value="YuGiOh">YuGiOh</option>
+      </select>
+      <select class="filter-select" id="filterType" onchange="applyFilters()">
+        <option value="">All Types</option>
+        <option>Fire</option><option>Water</option><option>Grass</option>
+        <option>Lightning</option><option>Psychic</option><option>Fighting</option>
+        <option>Darkness</option><option>Metal</option><option>Dragon</option>
+        <option>Fairy</option><option>Colorless</option>
+      </select>
+      <select class="filter-select" id="filterSuper" onchange="applyFilters()">
+        <option value="">All Categories</option>
+        <option value="Pokémon">Pokémon</option>
+        <option value="Trainer">Trainer</option>
+        <option value="Energy">Energy</option>
+      </select>
+      <select class="filter-select" id="filterStatus" onchange="applyFilters()">
+        <option value="">All Status</option>
+        <option value="available">Available</option>
+        <option value="deck">In Deck</option>
+        <option value="binder">In Binder</option>
+        <option value="traded">Traded</option>
+        <option value="gave_away">Gave Away</option>
+      </select>
+    </div>
+
+    <!-- Content -->
+    <div id="content-area">
+
+      <!-- Browse Page -->
+      <div class="page active" id="browse-page">
+        <div id="grid-pane">
+          <div id="card-grid">
+            <div id="empty-state">
+              <div class="empty-icon">📭</div>
+              <p>No cards yet. Import a Collectr CSV to get started.</p>
+            </div>
+          </div>
+        </div>
+        <div id="detail-pane" class="closed">
+          <div id="detail-inner">
+            <div id="detail-empty">← Select a card</div>
+            <div id="detail-full" style="display:none">
+              <div id="detail-img-wrap">
+                <div id="detail-img-ph"><span id="detail-img-emoji">🃏</span></div>
+                <img id="detail-img" src="" alt="" class="hidden" onload="onDetailImgLoad()" onerror="onDetailImgErr()"/>
+              </div>
+              <div id="detail-name"></div>
+              <div id="detail-set"></div>
+              <div id="detail-tags"></div>
+              <div id="address-badge">
+                <div class="badge-icon">📍</div>
+                <div class="badge-body">
+                  <div class="badge-label">Suggested Location</div>
+                  <div class="badge-addr unset" id="badge-suggested">—</div>
+                </div>
+              </div>
+              <div class="detail-section-label">Copies</div>
+              <table class="copies-table">
+                <thead><tr>
+                  <th><input type="checkbox" class="copy-cb" id="select-all-cb" onchange="toggleAllCopies(this)"/></th>
+                  <th>Location</th>
+                  <th>Status</th>
+                  <th>Variant</th>
+                </tr></thead>
+                <tbody id="copies-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div id="detail-actions" style="display:none">
+            <button id="move-btn" disabled onclick="openMoveModal()">Move Selected</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Import Page -->
+      <div class="page" id="import-page">
+        <div id="import-inner">
+          <div class="panel-header">
+            <h2>Import Collectr CSV</h2>
+          </div>
+          <div class="import-zone" id="import-zone" onclick="document.getElementById('csv-file-input').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+            <div class="zone-icon">📄</div>
+            <p>Drop your Collectr CSV here, or click to browse</p>
+            <small>Export from Collectr → Portfolio → Export. Works for all games.</small>
+          </div>
+          <input type="file" id="csv-file-input" accept=".csv" style="display:none" onchange="onFileSelect(event)"/>
+          <div id="import-preview" style="display:none">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <div id="import-summary" style="font-size:12px;color:var(--text2)"></div>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-secondary btn-sm" onclick="clearImport()">Clear</button>
+                <button class="btn btn-primary btn-sm" id="confirm-import-btn" onclick="confirmImport()">Add New Cards</button>
+              </div>
+            </div>
+            <div class="preview-table-wrap">
+              <table class="data-table" id="preview-table">
+                <thead><tr>
+                  <th>Status</th><th>Game</th><th>Name</th><th>Set</th><th>#</th><th>Variant</th><th>Qty</th><th>Suggested Location</th>
+                </tr></thead>
+                <tbody id="preview-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filing List Page -->
+      <div class="page" id="filing-page">
+        <div id="filing-inner">
+          <div class="panel-header">
+            <h2>Filing List</h2>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-secondary btn-sm" onclick="printFilingList()">🖨️ Print</button>
+              <button class="btn btn-primary btn-sm" onclick="confirmAllFiling()">✓ Confirm All</button>
+            </div>
+          </div>
+          <p style="font-size:12px;color:var(--text3);margin-bottom:16px">Cards awaiting placement, grouped by suggested location. Work through each group, place the cards, then confirm.</p>
+          <div id="filing-groups"></div>
+        </div>
+      </div>
+
+      <!-- Boxes / Locations Page -->
+      <div class="page" id="locations-page">
+        <div class="mgmt-inner">
+          <div class="panel-header">
+            <h2>Boxes</h2>
+            <button class="btn btn-primary btn-sm" onclick="openAddBoxModal()">+ Add Box</button>
+          </div>
+          <p style="font-size:12px;color:var(--text3);margin-bottom:12px">Define your physical boxes and their rows. Each row maps to a card type or category.</p>
+          <div class="mgmt-grid" id="boxes-grid"></div>
+        </div>
+      </div>
+
+      <!-- Binders Page -->
+      <div class="page" id="binders-page">
+        <div class="mgmt-inner">
+          <div class="panel-header">
+            <h2>Binders</h2>
+            <button class="btn btn-primary btn-sm" onclick="openAddBinderModal()">+ Add Binder</button>
+          </div>
+          <div class="mgmt-grid" id="binders-grid"></div>
+        </div>
+      </div>
+
+      <!-- Decks Page -->
+      <div class="page" id="decks-page">
+        <div class="mgmt-inner">
+          <div class="panel-header">
+            <h2>Decks</h2>
+            <button class="btn btn-primary btn-sm" onclick="openAddDeckModal()">+ Add Deck</button>
+          </div>
+          <div class="mgmt-grid" id="decks-grid"></div>
+        </div>
+      </div>
+
+    </div><!-- /content-area -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+let DB = {
+  collection: [],   // one row per unique card (collection.csv)
+  database:   [],   // one row per physical copy (database.csv)
+  boxes:      [],   // { id, name, description, rows: [{id,label,type,game}] }
+  binders:    [],   // { id, name, description }
+  decks:      [],   // { id, name, description, owner }
+  sets:       {},   // TCGdex sets cache { setCode: {name,series,...} }
+  dex:        {},   // { pokemonName: dexNumber }
+  lastSync:   null
+};
+
+let UI = {
+  selectedCardId: null,
+  filteredCards:  [],
+  pendingImport:  [],   // rows parsed from CSV, not yet committed
+  pendingFiling:  [],   // new database rows awaiting location confirmation
+};
+
+// ============================================================
+// CONSTANTS — Physical Storage Layout
+// ============================================================
+const STORAGE_LAYOUT = {
+  typeToBox: {
+    'Fire':       { box: 'B1', row: 'R1' },
+    'Water':      { box: 'B1', row: 'R2' },
+    'Grass':      { box: 'B1', row: 'R3' },
+    'Lightning':  { box: 'B1', row: 'R4' },
+    'Psychic':    { box: 'B1', row: 'R5' },
+    'Fighting':   { box: 'B2', row: 'R1' },
+    'Darkness':   { box: 'B2', row: 'R2' },
+    'Metal':      { box: 'B2', row: 'R3' },
+    'Colorless':  { box: 'B2', row: 'R4' },
+    'Fairy':      { box: 'B2', row: 'R5.5', section: 'FAIRY' },
+    'Dragon':     { box: 'B2', row: 'R5.5', section: 'DRAGON' },
+  },
+  trainerToCol: {
+    'Supporter': 'TB-COL1',
+    'Item':      'TB-COL2',
+    'Tool':      'TB-COL2',
+    'Stadium':   'TB-COL3',
+  },
+  energySpecial: 'TB-COL3',
+  energyBasic:   'BASIC',
+  dividerSize:   100,  // group dex numbers every 100
+};
+
+const DEX_GROUP_SIZE = 100;
+
+// Game → location prefix for non-Pokémon
+const GAME_BOX = {
+  'Lorcana':              'LOR',
+  'Magic: The Gathering': 'MTG',
+  'YuGiOh':              'YGO',
+};
+
+// ============================================================
+// BOOT
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+  loadFromStorage();
+  renderAll();
+  document.getElementById('loading-screen').classList.add('hidden');
+});
+
+// ============================================================
+// PERSISTENCE (localStorage — simple, portable)
+// ============================================================
+function saveToStorage() {
+  try {
+    localStorage.setItem('cardvault_db', JSON.stringify(DB));
+  } catch(e) {
+    showToast('Storage full — export your CSV to back up data', 'error');
+  }
+}
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem('cardvault_db');
+    if (raw) {
+      const saved = JSON.parse(raw);
+      DB = { ...DB, ...saved };
+    } else {
+      // First run — seed default boxes
+      seedDefaultLayout();
+    }
+  } catch(e) {
+    seedDefaultLayout();
+  }
+}
+
+function seedDefaultLayout() {
+  DB.boxes = [
+    { id: 'B1', name: 'Box 1', description: 'Pokémon — Fire through Psychic', rows: [
+      { id: 'R1', label: 'Row 1', type: 'Fire',      game: 'Pokemon' },
+      { id: 'R2', label: 'Row 2', type: 'Water',     game: 'Pokemon' },
+      { id: 'R3', label: 'Row 3', type: 'Grass',     game: 'Pokemon' },
+      { id: 'R4', label: 'Row 4', type: 'Lightning', game: 'Pokemon' },
+      { id: 'R5', label: 'Row 5', type: 'Psychic',   game: 'Pokemon' },
+    ]},
+    { id: 'B2', name: 'Box 2', description: 'Pokémon — Fighting through Dragon/Fairy', rows: [
+      { id: 'R1',   label: 'Row 1',   type: 'Fighting',     game: 'Pokemon' },
+      { id: 'R2',   label: 'Row 2',   type: 'Darkness',     game: 'Pokemon' },
+      { id: 'R3',   label: 'Row 3',   type: 'Metal',        game: 'Pokemon' },
+      { id: 'R4',   label: 'Row 4',   type: 'Colorless',    game: 'Pokemon' },
+      { id: 'R5.5', label: 'Row 5.5', type: 'Fairy/Dragon', game: 'Pokemon' },
+    ]},
+    { id: 'TB', name: 'Trainer Box', description: '3-column box for Trainers & Special Energy', rows: [
+      { id: 'COL1', label: 'Column 1', type: 'Supporter',        game: 'Pokemon' },
+      { id: 'COL2', label: 'Column 2', type: 'Item/Tool',        game: 'Pokemon' },
+      { id: 'COL3', label: 'Column 3', type: 'Stadium/Sp.Energy',game: 'Pokemon' },
+    ]},
+    { id: 'YGO', name: 'YuGiOh Box', description: 'Alphabetical', rows: [] },
+    { id: 'MTG', name: 'MTG Box',    description: 'Alphabetical', rows: [] },
+    { id: 'LOR', name: 'Lorcana Box',description: 'Alphabetical', rows: [] },
+  ];
+  DB.binders = [];
+  DB.decks   = [];
+  saveToStorage();
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+const PAGE_TITLES = {
+  browse:    'Browse Collection',
+  import:    'Import Collectr CSV',
+  filing:    'Filing List',
+  locations: 'Boxes',
+  binders:   'Binders',
+  decks:     'Decks',
+};
+
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(id + '-page').classList.add('active');
+  document.getElementById('nav-' + id)?.classList.add('active');
+  document.getElementById('page-title').textContent = PAGE_TITLES[id] || id;
+
+  // Show/hide filters
+  const browseControls = ['filterGame','filterType','filterSuper','filterStatus','search-wrap'];
+  browseControls.forEach(id2 => {
+    const el = document.getElementById(id2) || document.querySelector('.' + id2);
+    if (el) el.style.display = id === 'browse' ? '' : 'none';
+  });
+
+  if (id === 'filing')    renderFilingList();
+  if (id === 'locations') renderBoxesGrid();
+  if (id === 'binders')   renderBindersGrid();
+  if (id === 'decks')     renderDecksGrid();
+}
+
+// ============================================================
+// RENDER ALL
+// ============================================================
+function renderAll() {
+  applyFilters();
+  updateSidebarStats();
+  renderFilingBadge();
+}
+
+function updateSidebarStats() {
+  document.getElementById('stat-unique').textContent  = DB.collection.length.toLocaleString();
+  document.getElementById('stat-total').textContent   = DB.database.length.toLocaleString();
+  const unplaced = DB.database.filter(r => !r.physical_location || r.physical_location === 'UNPLACED').length;
+  document.getElementById('stat-unplaced').textContent = unplaced.toLocaleString();
+  document.getElementById('badge-browse').textContent  = DB.collection.length.toLocaleString();
+}
+
+function renderFilingBadge() {
+  const unplaced = DB.database.filter(r => !r.physical_location || r.physical_location === 'UNPLACED').length;
+  document.getElementById('badge-filing').textContent = unplaced > 0 ? unplaced : '0';
+}
+
+// ============================================================
+// BROWSE / FILTER
+// ============================================================
+function applyFilters() {
+  const q       = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+  const fGame   = document.getElementById('filterGame')?.value   || '';
+  const fType   = (document.getElementById('filterType')?.value  || '').toLowerCase();
+  const fSuper  = document.getElementById('filterSuper')?.value  || '';
+  const fStatus = document.getElementById('filterStatus')?.value || '';
+
+  UI.filteredCards = DB.collection.filter(c => {
+    if (q) {
+      const hay = [c.name, c.set_name, c.illustrator, c.card_id, c.game].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    if (fGame   && c.game !== fGame)       return false;
+    if (fType   && !(c.type||'').toLowerCase().includes(fType)) return false;
+    if (fSuper  && c.supertype !== fSuper) return false;
+    if (fStatus) {
+      const copies = getCopiesFor(c.card_id);
+      const match  = copies.some(cp => {
+        if (fStatus === 'deck')   return cp.status.startsWith('deck:');
+        if (fStatus === 'binder') return cp.status.startsWith('binder:');
+        return cp.status === fStatus;
+      });
+      if (!match) return false;
+    }
+    return true;
+  });
+
+  renderGrid();
+}
+
+function getCopiesFor(cardId) {
+  return DB.database.filter(r => r.card_id === cardId);
+}
+
+// ============================================================
+// GRID RENDER
+// ============================================================
+function renderGrid() {
+  const grid = document.getElementById('card-grid');
+  grid.querySelectorAll('.card-tile').forEach(el => el.remove());
+  const empty = document.getElementById('empty-state');
+
+  if (UI.filteredCards.length === 0) {
+    empty.style.display = 'block';
+    empty.innerHTML = DB.collection.length === 0
+      ? '<div class="empty-icon">📭</div><p>No cards yet. Import a Collectr CSV to get started.</p>'
+      : '<div class="empty-icon">🔍</div><p>No cards match your search.</p>';
+    return;
+  }
+  empty.style.display = 'none';
+
+  const frag = document.createDocumentFragment();
+  UI.filteredCards.forEach(card => {
+    const tile = buildTile(card);
+    frag.appendChild(tile);
+  });
+  grid.appendChild(frag);
+}
+
+function buildTile(card) {
+  const tile = document.createElement('div');
+  tile.className = 'card-tile' + (card.card_id === UI.selectedCardId ? ' selected' : '');
+  tile.dataset.cardId = card.card_id;
+  tile.onclick = () => selectCard(card.card_id);
+
+  // Qty badge
+  const copies = getCopiesFor(card.card_id);
+  const avail  = copies.filter(c => c.status === 'available').length;
+  const badge  = document.createElement('div');
+  badge.className = 'qty-badge' + (avail === 0 ? ' dim' : '');
+  badge.textContent = copies.length;
+  tile.appendChild(badge);
+
+  // New badge
+  if (card._new) {
+    const nb = document.createElement('div');
+    nb.className = 'new-badge';
+    nb.textContent = 'NEW';
+    tile.appendChild(nb);
+  }
+
+  // Image
+  const ph = document.createElement('div');
+  ph.className = 'img-ph';
+  ph.textContent = typeEmoji(card.type, card.game);
+  tile.appendChild(ph);
+
+  if (card.game === 'Pokemon' && card.set_code) {
+    const img = document.createElement('img');
+    img.loading = 'lazy';
+    img.alt = card.name;
+    const nid = normalizeCardId(card.card_id);
+    img.src = `https://assets.tcgdex.net/en/${card.set_code}/${nid}/high.webp`;
+    img.onload  = () => ph.remove();
+    img.onerror = () => img.remove();
+    tile.appendChild(img);
+  }
+
+  // Info
+  const info = document.createElement('div');
+  info.className = 'tile-info';
+  info.innerHTML =
+    `<div class="tile-name">${esc(card.name)}</div>` +
+    `<div class="tile-meta">${esc(card.set_name || card.game)}</div>`;
+  tile.appendChild(info);
+  return tile;
+}
+
+// ============================================================
+// DETAIL PANEL
+// ============================================================
+function selectCard(cardId) {
+  UI.selectedCardId = cardId;
+  document.querySelectorAll('.card-tile').forEach(t =>
+    t.classList.toggle('selected', t.dataset.cardId === cardId));
+
+  const card   = DB.collection.find(c => c.card_id === cardId);
+  const copies = getCopiesFor(cardId);
+  if (!card) return;
+
+  const pane = document.getElementById('detail-pane');
+  pane.classList.remove('closed');
+  document.getElementById('detail-empty').style.display  = 'none';
+  document.getElementById('detail-full').style.display   = 'block';
+  document.getElementById('detail-actions').style.display = 'flex';
+
+  // Image
+  const imgEl = document.getElementById('detail-img');
+  const phEl  = document.getElementById('detail-img-ph');
+  document.getElementById('detail-img-emoji').textContent = typeEmoji(card.type, card.game);
+  imgEl.classList.add('hidden');
+  phEl.classList.remove('hidden');
+
+  if (card.game === 'Pokemon' && card.set_code) {
+    const nid = normalizeCardId(card.card_id);
+    imgEl.src = `https://assets.tcgdex.net/en/${card.set_code}/${nid}/high.webp`;
+  }
+
+  document.getElementById('detail-name').textContent = card.name;
+  document.getElementById('detail-set').textContent  =
+    [card.set_name, card.collector_number ? `#${card.collector_number}` : '', card.illustrator ? `🎨 ${card.illustrator}` : '']
+    .filter(Boolean).join(' · ');
+
+  // Tags
+  const tagsEl = document.getElementById('detail-tags');
+  tagsEl.innerHTML = '';
+  if (card.supertype) tagsEl.appendChild(makeTag(card.supertype, 'tag-' + card.supertype.toLowerCase()));
+  if (card.subtype)   card.subtype.split(',').forEach(s => tagsEl.appendChild(makeTag(s.trim(), 'tag-neutral')));
+  if (card.type)      card.type.split(',').forEach(t => tagsEl.appendChild(makeTag(t.trim(), 'tag-' + t.trim().toLowerCase())));
+  if (card.game !== 'Pokemon') tagsEl.appendChild(makeTag(card.game, 'tag-neutral'));
+
+  // Address badge — show suggested from first unplaced copy
+  const unplacedCopy = copies.find(c => !c.physical_location || c.physical_location === 'UNPLACED');
+  const addrEl = document.getElementById('badge-suggested');
+  const suggested = unplacedCopy?.suggested_location || card.suggested_location || '';
+  if (suggested) {
+    addrEl.textContent = suggested;
+    addrEl.classList.remove('unset');
+  } else {
+    addrEl.textContent = 'No suggestion';
+    addrEl.classList.add('unset');
+  }
+
+  // Copies table
+  renderCopiesTable(copies);
+  document.getElementById('select-all-cb').checked = false;
+  updateMoveBtn();
+}
+
+function renderCopiesTable(copies) {
+  const tbody = document.getElementById('copies-tbody');
+  tbody.innerHTML = '';
+  copies.forEach(cp => {
+    const tr = document.createElement('tr');
+    const sp = statusPill(cp.status);
+    const loc = cp.physical_location && cp.physical_location !== 'UNPLACED'
+      ? `<code style="font-size:9px;color:var(--accent2)">${esc(cp.physical_location)}</code>`
+      : `<span style="color:var(--text3);font-size:10px;font-style:italic">unplaced</span>`;
+    tr.innerHTML =
+      `<td><input type="checkbox" class="copy-cb" data-uid="${esc(cp.unique_key)}" onchange="onCopyCbChange()"/></td>` +
+      `<td>${loc}</td>` +
+      `<td>${sp}</td>` +
+      `<td style="font-size:10px;color:var(--text3)">${esc(cp.variant||'')}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function makeTag(text, cls) {
+  const span = document.createElement('span');
+  span.className = `tag ${cls}`;
+  span.textContent = text;
+  return span;
+}
+
+function onDetailImgLoad() {
+  document.getElementById('detail-img').classList.remove('hidden');
+  document.getElementById('detail-img-ph').classList.add('hidden');
+}
+function onDetailImgErr() {
+  document.getElementById('detail-img').classList.add('hidden');
+  document.getElementById('detail-img-ph').classList.remove('hidden');
+}
+
+function toggleAllCopies(master) {
+  document.querySelectorAll('.copy-cb').forEach(cb => cb.checked = master.checked);
+  updateMoveBtn();
+}
+function onCopyCbChange() {
+  const all     = document.querySelectorAll('.copy-cb');
+  const checked = document.querySelectorAll('.copy-cb:checked');
+  document.getElementById('select-all-cb').checked = checked.length === all.length && all.length > 0;
+  updateMoveBtn();
+}
+function updateMoveBtn() {
+  const n = document.querySelectorAll('.copy-cb:checked').length;
+  const btn = document.getElementById('move-btn');
+  btn.disabled = n === 0;
+  btn.textContent = n === 0 ? 'Move Selected' : `Move ${n} Cop${n===1?'y':'ies'}`;
+}
+
+// ============================================================
+// STATUS PILLS
+// ============================================================
+function statusPill(status) {
+  if (!status || status === 'available')   return `<span class="status-pill sp-available">Available</span>`;
+  if (status.startsWith('deck:'))          return `<span class="status-pill sp-deck">🃏 ${esc(status.replace('deck:',''))}</span>`;
+  if (status.startsWith('binder:'))        return `<span class="status-pill sp-binder">📒 ${esc(status.replace('binder:',''))}</span>`;
+  if (status === 'traded')                 return `<span class="status-pill sp-traded">Traded</span>`;
+  if (status === 'gave_away')              return `<span class="status-pill sp-gave">Gave Away</span>`;
+  return `<span class="status-pill sp-traded">${esc(status)}</span>`;
+}
+
+// ============================================================
+// MOVE MODAL
+// ============================================================
+function openMoveModal() {
+  const uids = [...document.querySelectorAll('.copy-cb:checked')].map(cb => cb.dataset.uid);
+  if (uids.length === 0) return;
+
+  const deckOpts   = DB.decks.map(d   => `<option value="deck:${esc(d.name)}">${esc(d.name)}${d.owner?' ('+esc(d.owner)+')':''}</option>`).join('');
+  const binderOpts = DB.binders.map(b => `<option value="binder:${esc(b.name)}">${esc(b.name)}</option>`).join('');
+
+  showModal('Move Copies', `
+    <p style="font-size:12px;color:var(--text3);margin-bottom:12px">${uids.length} cop${uids.length===1?'y':'ies'} selected</p>
+    <div class="form-row">
+      <label class="form-label">Move to</label>
+      <select class="form-select" id="move-dest" onchange="onMoveDestChange()">
+        <option value="available">Available (return to collection)</option>
+        <option value="deck">In Deck…</option>
+        <option value="binder">In Binder…</option>
+        <option value="traded">Traded</option>
+        <option value="gave_away">Gave Away</option>
+      </select>
+    </div>
+    <div id="move-dest-detail" style="display:none" class="form-row">
+      <label class="form-label" id="move-dest-label">Choose Deck</label>
+      <select class="form-select" id="move-dest-value"></select>
+    </div>
+  `, [
+    { label: 'Cancel', cls: 'btn-secondary', action: closeModal },
+    { label: 'Move', cls: 'btn-primary', action: () => doMove(uids) }
+  ]);
+}
+
+function onMoveDestChange() {
+  const dest   = document.getElementById('move-dest').value;
+  const detail = document.getElementById('move-dest-detail');
+  const lbl    = document.getElementById('move-dest-label');
+  const sel    = document.getElementById('move-dest-value');
+  if (dest === 'deck') {
+    detail.style.display = 'block';
+    lbl.textContent = 'Choose Deck';
+    sel.innerHTML = DB.decks.map(d => `<option value="deck:${esc(d.name)}">${esc(d.name)}</option>`).join('');
+  } else if (dest === 'binder') {
+    detail.style.display = 'block';
+    lbl.textContent = 'Choose Binder';
+    sel.innerHTML = DB.binders.map(b => `<option value="binder:${esc(b.name)}">${esc(b.name)}</option>`).join('');
+  } else {
+    detail.style.display = 'none';
+  }
+}
+
+function doMove(uids) {
+  const dest = document.getElementById('move-dest').value;
+  let finalStatus = dest;
+  if (dest === 'deck' || dest === 'binder') {
+    finalStatus = document.getElementById('move-dest-value').value;
+  }
+  if ((dest === 'traded' || dest === 'gave_away') && !confirm(`Mark ${uids.length} cop${uids.length===1?'y':'ies'} as ${dest}? They stay in the database but won't be reimported.`)) return;
+
+  const uidSet = new Set(uids);
+  let moved = 0;
+  DB.database.forEach(r => {
+    if (uidSet.has(r.unique_key)) {
+      if (r.status !== 'traded' && r.status !== 'gave_away') {
+        r.status = finalStatus;
+        moved++;
+      }
+    }
+  });
+
+  saveToStorage();
+  closeModal();
+  selectCard(UI.selectedCardId);
+  updateSidebarStats();
+  showToast(`Moved ${moved} cop${moved===1?'y':'ies'} → ${finalStatus}`, 'success');
+}
+
+// ============================================================
+// CSV IMPORT
+// ============================================================
+function onDragOver(e)  { e.preventDefault(); document.getElementById('import-zone').classList.add('dragover'); }
+function onDragLeave(e) { document.getElementById('import-zone').classList.remove('dragover'); }
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('import-zone').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) processCSVFile(file);
+}
+function onFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) processCSVFile(file);
+}
+function clearImport() {
+  UI.pendingImport = [];
+  document.getElementById('import-preview').style.display = 'none';
+  document.getElementById('csv-file-input').value = '';
+}
+
+function processCSVFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const rows = parseCollectrCSV(e.target.result);
+      UI.pendingImport = rows;
+      renderImportPreview(rows);
+    } catch(err) {
+      showToast('Error parsing CSV: ' + err.message, 'error');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function parseCollectrCSV(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  if (lines.length < 2) throw new Error('CSV appears empty');
+
+  const headers = parseCSVLine(lines[0]).map(h => h.trim());
+  // Expected: Portfolio Name,Category,Set,Product Name,Card Number,Rarity,Variance,Grade,Card Condition,Average Cost Paid,Quantity,Market Price...,Price Override,Watchlist,Date Added,Notes
+  const idx = h => headers.indexOf(h);
+
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCSVLine(lines[i]);
+    if (cols.length < 10) continue;
+
+    const game     = cols[idx('Category')]     || '';
+    const setName  = cols[idx('Set')]           || '';
+    const rawName  = cols[idx('Product Name')]  || '';
+    const cardNum  = cols[idx('Card Number')]   || '';
+    const rarity   = cols[idx('Rarity')]        || '';
+    const variant  = cols[idx('Variance')]      || '';
+    const qty      = parseInt(cols[idx('Quantity')]) || 1;
+    const dateAdded= cols[idx('Date Added')]    || new Date().toISOString().split('T')[0];
+    const portfolio= cols[idx('Portfolio Name')]|| '';
+
+    if (!game || !rawName) continue;
+
+    // Clean card name — strip disambiguating number in parens e.g. "Zapdos (30)"
+    const name = rawName.replace(/\s*\(\d+\)\s*$/, '').trim();
+
+    // Build a card_id: game-setcode-cardnum (normalized)
+    const setCode = buildSetCode(game, setName);
+    const cardId  = buildCardId(game, setCode, cardNum, name, variant);
+
+    // Unique key base: cardId + dateAdded
+    const ukBase = `${cardId}||${dateAdded}`;
+
+    // Check existing database rows with same base to determine suffix offset
+    const existingSuffixes = DB.database
+      .filter(r => r.unique_key.startsWith(ukBase + '||'))
+      .map(r => parseInt(r.unique_key.split('||')[2] || '0'));
+    const maxExisting = existingSuffixes.length > 0 ? Math.max(...existingSuffixes) : 0;
+
+    // Check if this exact combination (before expansion) already fully imported
+    const alreadyImported = DB.database.filter(r => r.unique_key.startsWith(ukBase)).length;
+
+    // Suggested location
+    const suggested = suggestLocation(game, null, null, null, name, cardNum);
+
+    for (let q = 0; q < qty; q++) {
+      const suffix = String(maxExisting + q + 1).padStart(3, '0');
+      const uniqueKey = `${ukBase}||${suffix}`;
+      const isNew = !DB.database.find(r => r.unique_key === uniqueKey);
+
+      rows.push({
+        unique_key:         uniqueKey,
+        game:               normalizeGame(game),
+        card_id:            cardId,
+        name,
+        raw_name:           rawName,
+        set_name:           setName,
+        set_code:           setCode,
+        collector_number:   cardNum,
+        rarity,
+        variant,
+        portfolio,
+        supertype:          '',   // filled by TCGdex enrichment
+        subtype:            '',
+        type:               '',
+        dex_number:         '',
+        dewey_code:         '',
+        illustrator:        '',
+        suggested_location: suggested,
+        physical_location:  '',
+        status:             'available',
+        added_date:         dateAdded,
+        notes:              '',
+        _new:               isNew,
+        _copy_num:          q + 1,
+      });
+    }
+  }
+  return rows;
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQ && line[i+1] === '"') { cur += '"'; i++; }
+      else inQ = !inQ;
+    } else if (ch === ',' && !inQ) {
+      result.push(cur); cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  result.push(cur);
+  return result;
+}
+
+function normalizeGame(cat) {
+  const map = { 'Pokemon': 'Pokemon', 'Lorcana': 'Lorcana', 'Magic: The Gathering': 'Magic: The Gathering', 'YuGiOh': 'YuGiOh' };
+  return map[cat] || cat;
+}
+
+function buildSetCode(game, setName) {
+  // For Pokémon, derive a short set code from set name
+  // This is best-effort — TCGdex enrichment will refine it
+  if (game !== 'Pokemon') return slugify(setName).substring(0, 10);
+  // Map common Pokémon set names to codes
+  const known = {
+    'Base Set (1st Edition & Shadowless)': 'base1',
+    'Base Set (Unlimited)': 'base1',
+    'Base Set 2': 'base4',
+    'Jungle': 'base2',
+    'Fossil': 'base3',
+    'Team Rocket': 'base5',
+    'Gym Heroes': 'gym1',
+    'Gym Challenge': 'gym2',
+    'Neo Genesis': 'neo1',
+    'Neo Discovery': 'neo2',
+    'Neo Revelation': 'neo3',
+    'Legendary Collection': 'base6',
+    'Mysterious Treasures': 'dp2',
+    'Battle Styles': 'swsh5',
+    'Paldean Fates': 'sv4pt5',
+    'Perfect Order': 'sv9',
+    'MEGA Dream ex': 'sv9pt5',
+  };
+  return known[setName] || slugify(setName).substring(0, 8);
+}
+
+function buildCardId(game, setCode, cardNum, name, variant) {
+  // Normalize card number: strip /total e.g. "054/163" → "054"
+  const num = cardNum.replace(/\/\d+$/, '').trim();
+  if (game === 'YuGiOh') return cardNum; // YGO card numbers are already unique IDs
+  return `${setCode}-${num || slugify(name).substring(0,8)}`;
+}
+
+// ============================================================
+// LOCATION AUTO-SUGGEST
+// ============================================================
+function suggestLocation(game, supertype, subtype, type, name, cardNum) {
+  if (game !== 'Pokemon') {
+    // Non-Pokémon: alphabetical by name
+    const prefix = GAME_BOX[game] || 'UNK';
+    const letter = (name || '?')[0].toUpperCase();
+    return `${prefix}-${letter}`;
+  }
+
+  // Will be refined after TCGdex enrichment — for now use what we have
+  if (supertype === 'Trainer' || (!supertype && isLikelyTrainer(name))) {
+    if (subtype?.includes('Supporter') || isLikelySupporter(name)) return 'TB-COL1';
+    if (subtype?.includes('Stadium'))                                return 'TB-COL3';
+    return 'TB-COL2'; // Items and Tools
+  }
+  if (supertype === 'Energy') {
+    if (subtype?.includes('Special')) return 'TB-COL3';
+    return 'BASIC';
+  }
+
+  // Pokémon — route by type
+  if (type) {
+    const layout = STORAGE_LAYOUT.typeToBox[type];
+    if (layout) {
+      const section = layout.section ? `-${layout.section}` : '';
+      return `${layout.box}-${layout.row}${section}`;
+      // Dex number appended after TCGdex enrichment
+    }
+  }
+
+  return 'UNPLACED';
+}
+
+function isLikelyTrainer(name) {
+  const trainerWords = ["potion","ball","energy","professor","trainer","supporter","item","stadium","tool","professor's","misty's","brock's","bill","oak","computer","switch","rope","hammer","radio","research","pal pad","level ball","quick ball","ultra ball","nest ball","great ball","master ball","rare candy","max potion","berry","energy search","energy retrieval","gust","sleep","full heal","revive","super rod","town map","judge","lillie","cynthia","marnie","hop","sonia","raihan","boss","rosa","skyla","winona","wicke","hau"];
+  const low = name.toLowerCase();
+  return trainerWords.some(w => low.includes(w));
+}
+
+function isLikelySupporter(name) {
+  const supporters = ["professor","researcher","judge","marnie","hop","sonia","raihan","boss","rosa","skyla","cynthia","lillie","wicke","hau","giovanni","sabrina","blaine","misty","brock","erika","koga","lt. surge","bill","oak","colress","n ","iris","ghetsis","lysandre","diantha","sina","dexio","kukui","hala","plumeria","guzma","hapu","nanu","acerola","molayne","kahili","ryuki","mina","illima","lana","mallow","kiawe","sophocles","olivia","nanu"];
+  const low = name.toLowerCase();
+  return supporters.some(w => low.includes(w));
+}
+
+// Full suggest with dex number (called after TCGdex enrichment)
+function suggestLocationFull(card) {
+  if (card.game !== 'Pokemon') {
+    const prefix = GAME_BOX[card.game] || 'UNK';
+    const letter = (card.name || '?')[0].toUpperCase();
+    return `${prefix}-${letter}`;
+  }
+
+  const sub  = card.subtype  || '';
+  const type = card.type     || '';
+  const supe = card.supertype|| '';
+
+  if (supe === 'Trainer') {
+    if (sub.includes('Supporter')) return 'TB-COL1';
+    if (sub.includes('Stadium'))   return 'TB-COL3';
+    return 'TB-COL2';
+  }
+  if (supe === 'Energy') {
+    if (sub.includes('Special')) return 'TB-COL3';
+    return 'BASIC';
+  }
+
+  // Pokémon
+  const layout = STORAGE_LAYOUT.typeToBox[type.split(',')[0].trim()];
+  if (!layout) return 'UNPLACED';
+
+  const section = layout.section ? `-${layout.section}` : '';
+  const dex     = parseInt(card.dex_number) || 0;
+
+  if (dex > 0) {
+    const grp = (Math.floor((dex - 1) / DEX_GROUP_SIZE) * DEX_GROUP_SIZE + 1);
+    const grpStr = String(grp).padStart(3, '0');
+    return `${layout.box}-${layout.row}${section}-${String(dex).padStart(4,'0')}-${grpStr}`;
+  }
+
+  return `${layout.box}-${layout.row}${section}`;
+}
+
+// ============================================================
+// IMPORT PREVIEW RENDER
+// ============================================================
+function renderImportPreview(rows) {
+  const newRows  = rows.filter(r => r._new);
+  const skipRows = rows.filter(r => !r._new);
+  document.getElementById('import-summary').textContent =
+    `${newRows.length} new card${newRows.length!==1?'s':''} to add · ${skipRows.length} already in database (will skip)`;
+
+  const tbody = document.getElementById('preview-tbody');
+  tbody.innerHTML = '';
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    if (r._new) tr.className = 'row-new';
+    tr.innerHTML =
+      `<td>${r._new ? '<span style="color:var(--accent2);font-weight:700;font-size:10px">NEW</span>' : '<span style="color:var(--text3);font-size:10px">skip</span>'}</td>` +
+      `<td style="font-size:11px">${esc(r.game)}</td>` +
+      `<td style="font-weight:600">${esc(r.name)}</td>` +
+      `<td style="font-size:11px;color:var(--text3)">${esc(r.set_name)}</td>` +
+      `<td style="font-family:monospace;font-size:10px">${esc(r.collector_number)}</td>` +
+      `<td style="font-size:10px;color:var(--text3)">${esc(r.variant)}</td>` +
+      `<td style="text-align:center">${r._copy_num}</td>` +
+      `<td><code style="font-size:10px;color:var(--accent2)">${esc(r.suggested_location||'—')}</code></td>`;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('import-preview').style.display = 'block';
+  document.getElementById('confirm-import-btn').disabled = newRows.length === 0;
+  if (newRows.length === 0) document.getElementById('confirm-import-btn').textContent = 'Nothing New';
+  else document.getElementById('confirm-import-btn').textContent = `Add ${newRows.length} Card${newRows.length!==1?'s':''}`;
+}
+
+function confirmImport() {
+  const newRows = UI.pendingImport.filter(r => r._new);
+  if (newRows.length === 0) return;
+
+  // Add to database
+  newRows.forEach(r => {
+    // Add to collection (unique cards) if not already there
+    const cardId = r.card_id;
+    const existing = DB.collection.find(c => c.card_id === cardId);
+    if (!existing) {
+      DB.collection.push({
+        card_id:          cardId,
+        game:             r.game,
+        name:             r.name,
+        set_name:         r.set_name,
+        set_code:         r.set_code,
+        collector_number: r.collector_number,
+        rarity:           r.rarity,
+        variant:          r.variant,
+        supertype:        r.supertype,
+        subtype:          r.subtype,
+        type:             r.type,
+        dex_number:       r.dex_number,
+        dewey_code:       r.dewey_code,
+        illustrator:      r.illustrator,
+        suggested_location: r.suggested_location,
+        _new:             true,
+      });
+    }
+
+    // Add to database (per-copy)
+    DB.database.push({
+      unique_key:         r.unique_key,
+      card_id:            cardId,
+      game:               r.game,
+      name:               r.name,
+      set_name:           r.set_name,
+      set_code:           r.set_code,
+      collector_number:   r.collector_number,
+      rarity:             r.rarity,
+      variant:            r.variant,
+      supertype:          r.supertype,
+      subtype:            r.subtype,
+      type:               r.type,
+      dex_number:         r.dex_number,
+      dewey_code:         r.dewey_code,
+      illustrator:        r.illustrator,
+      suggested_location: r.suggested_location,
+      physical_location:  '',
+      status:             'available',
+      added_date:         r.added_date,
+      notes:              '',
+    });
+  });
+
+  saveToStorage();
+  clearImport();
+  renderAll();
+  showToast(`Added ${newRows.length} card${newRows.length!==1?'s':''}. Check the Filing List to place them.`, 'success');
+  showPage('filing');
+}
+
+// ============================================================
+// FILING LIST
+// ============================================================
+function renderFilingList() {
+  const unplaced = DB.database.filter(r => !r.physical_location || r.physical_location === 'UNPLACED');
+  const groups = {};
+
+  unplaced.forEach(r => {
+    const loc = r.suggested_location || 'UNPLACED';
+    if (!groups[loc]) groups[loc] = [];
+    groups[loc].push(r);
+  });
+
+  const container = document.getElementById('filing-groups');
+  container.innerHTML = '';
+
+  if (Object.keys(groups).length === 0) {
+    container.innerHTML = '<div style="color:var(--text3);text-align:center;padding:40px">🎉 All cards are placed!</div>';
+    return;
+  }
+
+  // Sort groups by location code
+  const sortedLocs = Object.keys(groups).sort();
+
+  sortedLocs.forEach(loc => {
+    const cards = groups[loc];
+    // Sort cards within group by dex number then name
+    cards.sort((a,b) => {
+      const da = parseInt(a.dex_number)||9999, db = parseInt(b.dex_number)||9999;
+      if (da !== db) return da - db;
+      return (a.name||'').localeCompare(b.name||'');
+    });
+
+    const group = document.createElement('div');
+    group.className = 'filing-group';
+
+    const header = document.createElement('div');
+    header.className = 'filing-group-header';
+    header.innerHTML =
+      `<span class="loc-badge">${esc(loc)}</span>` +
+      `<span>${esc(locationLabel(loc))}</span>` +
+      `<span class="count">${cards.length} card${cards.length!==1?'s':''}</span>`;
+    group.appendChild(header);
+
+    const list = document.createElement('div');
+    list.className = 'filing-list';
+
+    cards.forEach(card => {
+      const item = document.createElement('div');
+      item.className = 'filing-item';
+      item.innerHTML =
+        `<span class="fi-name">${esc(card.name)}</span>` +
+        `<span class="fi-set">${esc(card.set_name||'')}</span>` +
+        `<span class="fi-num">#${esc(card.collector_number||'')}</span>` +
+        `<span class="fi-variant">${esc(card.variant||'')}</span>`;
+      list.appendChild(item);
+    });
+    group.appendChild(list);
+
+    // Confirm button for this group
+    const btn = document.createElement('button');
+    btn.className = 'filing-confirm-btn';
+    btn.style.cssText = 'margin-top:6px;width:100%';
+    btn.textContent = `✓ Confirm — placed in ${loc}`;
+    btn.onclick = () => confirmFilingGroup(loc, cards.map(c => c.unique_key));
+    group.appendChild(btn);
+
+    container.appendChild(group);
+  });
+}
+
+function confirmFilingGroup(loc, uids) {
+  const uidSet = new Set(uids);
+  DB.database.forEach(r => {
+    if (uidSet.has(r.unique_key)) r.physical_location = loc;
+  });
+  saveToStorage();
+  renderFilingList();
+  renderFilingBadge();
+  updateSidebarStats();
+  showToast(`Confirmed ${uids.length} card${uids.length!==1?'s':''} → ${loc}`, 'success');
+}
+
+function confirmAllFiling() {
+  const unplaced = DB.database.filter(r => !r.physical_location || r.physical_location === 'UNPLACED');
+  if (unplaced.length === 0) return;
+  if (!confirm(`Confirm all ${unplaced.length} unplaced cards at their suggested locations?`)) return;
+  unplaced.forEach(r => { if (r.suggested_location) r.physical_location = r.suggested_location; });
+  saveToStorage();
+  renderFilingList();
+  renderFilingBadge();
+  updateSidebarStats();
+  showToast(`Confirmed ${unplaced.length} cards`, 'success');
+}
+
+function printFilingList() {
+  window.print();
+}
+
+function locationLabel(loc) {
+  if (loc === 'BASIC')   return 'Basic Energy Box';
+  if (loc === 'UNPLACED') return 'No suggestion';
+  if (loc.startsWith('TB-COL1')) return 'Trainer Box — Supporters';
+  if (loc.startsWith('TB-COL2')) return 'Trainer Box — Items & Tools';
+  if (loc.startsWith('TB-COL3')) return 'Trainer Box — Stadiums & Special Energy';
+  const typeMap = { 'B1-R1':'Box 1 Row 1 — Fire','B1-R2':'Box 1 Row 2 — Water','B1-R3':'Box 1 Row 3 — Grass','B1-R4':'Box 1 Row 4 — Lightning','B1-R5':'Box 1 Row 5 — Psychic','B2-R1':'Box 2 Row 1 — Fighting','B2-R2':'Box 2 Row 2 — Darkness','B2-R3':'Box 2 Row 3 — Metal','B2-R4':'Box 2 Row 4 — Colorless','B2-R5.5-FAIRY':'Box 2 Row 5.5 — Fairy','B2-R5.5-DRAGON':'Box 2 Row 5.5 — Dragon','YGO':'YuGiOh Box','MTG':'MTG Box','LOR':'Lorcana Box' };
+  for (const [k,v] of Object.entries(typeMap)) { if (loc.startsWith(k)) return v; }
+  return loc;
+}
+
+// ============================================================
+// BOXES MANAGEMENT
+// ============================================================
+function renderBoxesGrid() {
+  const grid = document.getElementById('boxes-grid');
+  grid.innerHTML = '';
+  DB.boxes.forEach(box => {
+    const card = document.createElement('div');
+    card.className = 'mgmt-card';
+    const rowsHtml = box.rows.map(r =>
+      `<span class="box-row-pill">${esc(r.id)} ${esc(r.type||r.label)}</span>`
+    ).join('');
+    card.innerHTML =
+      `<div class="mgmt-card-title">${esc(box.name)}</div>` +
+      `<div class="mgmt-card-sub">${esc(box.description||'')}</div>` +
+      `<div class="mgmt-card-rows">${rowsHtml || '<span style="color:var(--text3)">No rows defined</span>'}</div>` +
+      `<div class="mgmt-card-actions">
+        <button class="btn btn-secondary btn-sm" onclick="openEditBoxModal('${esc(box.id)}')">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteBox('${esc(box.id)}')">Delete</button>
+      </div>`;
+    grid.appendChild(card);
+  });
+  if (DB.boxes.length === 0) grid.innerHTML = '<div style="color:var(--text3);font-size:13px">No boxes yet. Add one above.</div>';
+}
+
+function openAddBoxModal() {
+  openBoxModal(null);
+}
+function openEditBoxModal(boxId) {
+  const box = DB.boxes.find(b => b.id === boxId);
+  if (box) openBoxModal(box);
+}
+
+function openBoxModal(box) {
+  const isEdit = !!box;
+  const rows   = box ? [...box.rows] : [];
+
+  showModal(isEdit ? `Edit ${box.name}` : 'Add Box', `
+    <div class="form-row">
+      <label class="form-label">Box ID</label>
+      <input class="form-input" id="box-id" value="${esc(box?.id||'')}" placeholder="e.g. B3" ${isEdit?'readonly':''}/>
+      <div class="form-hint">Short unique code — used in location addresses</div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Name</label>
+      <input class="form-input" id="box-name" value="${esc(box?.name||'')}" placeholder="e.g. Box 3"/>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Description</label>
+      <input class="form-input" id="box-desc" value="${esc(box?.description||'')}" placeholder="optional"/>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Rows</label>
+      <div class="row-builder" id="row-builder">
+        <div class="row-builder-header">
+          <span>Rows / Columns</span>
+          <button class="btn btn-ghost btn-sm" onclick="addRowEntry()">+ Add Row</button>
+        </div>
+        <div id="row-entries">
+          ${rows.map((r,i) => rowEntryHtml(r,i)).join('')}
+        </div>
+        <button class="add-row-btn" onclick="addRowEntry()">+ Add row</button>
+      </div>
+    </div>
+  `, [
+    { label: 'Cancel', cls: 'btn-secondary', action: closeModal },
+    { label: isEdit ? 'Save' : 'Add Box', cls: 'btn-primary', action: () => saveBox(box?.id) }
+  ]);
+}
+
+function rowEntryHtml(row, i) {
+  return `<div class="row-entry" id="row-entry-${i}">
+    <input class="form-input" placeholder="ID e.g. R1" value="${esc(row?.id||'')}" style="max-width:70px"/>
+    <input class="form-input" placeholder="Type/Label e.g. Fire" value="${esc(row?.type||row?.label||'')}"/>
+    <select class="form-select" style="max-width:100px">
+      <option value="Pokemon" ${row?.game==='Pokemon'?'selected':''}>Pokémon</option>
+      <option value="YuGiOh"  ${row?.game==='YuGiOh'?'selected':''}>YuGiOh</option>
+      <option value="Lorcana" ${row?.game==='Lorcana'?'selected':''}>Lorcana</option>
+      <option value="MTG"     ${row?.game==='MTG'?'selected':''}>MTG</option>
+      <option value="Mixed"   ${row?.game==='Mixed'?'selected':''}>Mixed</option>
+    </select>
+    <button class="rm-btn" onclick="this.closest('.row-entry').remove()">✕</button>
+  </div>`;
+}
+
+function addRowEntry() {
+  const container = document.getElementById('row-entries');
+  const i = container.children.length;
+  container.insertAdjacentHTML('beforeend', rowEntryHtml({}, i));
+}
+
+function saveBox(existingId) {
+  const id   = document.getElementById('box-id').value.trim();
+  const name = document.getElementById('box-name').value.trim();
+  const desc = document.getElementById('box-desc').value.trim();
+  if (!id || !name) { showToast('ID and Name are required', 'error'); return; }
+
+  const rows = [...document.getElementById('row-entries').querySelectorAll('.row-entry')].map(el => {
+    const inputs  = el.querySelectorAll('input');
+    const selects = el.querySelectorAll('select');
+    return { id: inputs[0].value.trim(), type: inputs[1].value.trim(), game: selects[0].value, label: inputs[1].value.trim() };
+  }).filter(r => r.id && r.type);
+
+  if (existingId) {
+    const box = DB.boxes.find(b => b.id === existingId);
+    if (box) { box.name = name; box.description = desc; box.rows = rows; }
+  } else {
+    if (DB.boxes.find(b => b.id === id)) { showToast('Box ID already exists', 'error'); return; }
+    DB.boxes.push({ id, name, description: desc, rows });
+  }
+
+  saveToStorage();
+  closeModal();
+  renderBoxesGrid();
+  showToast(`Box "${name}" ${existingId ? 'updated' : 'added'}`, 'success');
+}
+
+function deleteBox(boxId) {
+  const inUse = DB.database.some(r => (r.physical_location||'').startsWith(boxId + '-') || r.physical_location === boxId);
+  if (inUse && !confirm(`Cards are stored in this box. Delete anyway?`)) return;
+  DB.boxes = DB.boxes.filter(b => b.id !== boxId);
+  saveToStorage();
+  renderBoxesGrid();
+  showToast('Box deleted', 'info');
+}
+
+// ============================================================
+// BINDERS MANAGEMENT
+// ============================================================
+function renderBindersGrid() {
+  const grid = document.getElementById('binders-grid');
+  grid.innerHTML = '';
+  DB.binders.forEach(b => {
+    const card = document.createElement('div');
+    card.className = 'mgmt-card';
+    const copies = DB.database.filter(r => r.status === `binder:${b.name}`).length;
+    card.innerHTML =
+      `<div class="mgmt-card-title">📒 ${esc(b.name)}</div>` +
+      `<div class="mgmt-card-sub">${esc(b.description||'')}</div>` +
+      `<div class="mgmt-card-rows">${copies} card${copies!==1?'s':''} stored</div>` +
+      `<div class="mgmt-card-actions">
+        <button class="btn btn-danger btn-sm" onclick="deleteBinder('${esc(b.name)}')">Delete</button>
+      </div>`;
+    grid.appendChild(card);
+  });
+  if (DB.binders.length === 0) grid.innerHTML = '<div style="color:var(--text3);font-size:13px">No binders yet.</div>';
+}
+
+function openAddBinderModal() {
+  showModal('Add Binder', `
+    <div class="form-row">
+      <label class="form-label">Name</label>
+      <input class="form-input" id="binder-name" placeholder="e.g. Holos Binder"/>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Description</label>
+      <input class="form-input" id="binder-desc" placeholder="optional"/>
+    </div>
+  `, [
+    { label: 'Cancel', cls: 'btn-secondary', action: closeModal },
+    { label: 'Add Binder', cls: 'btn-primary', action: saveBinder }
+  ]);
+}
+
+function saveBinder() {
+  const name = document.getElementById('binder-name').value.trim();
+  if (!name) { showToast('Name required', 'error'); return; }
+  if (DB.binders.find(b => b.name === name)) { showToast('Binder already exists', 'error'); return; }
+  DB.binders.push({ id: slugify(name), name, description: document.getElementById('binder-desc').value.trim() });
+  saveToStorage();
+  closeModal();
+  renderBindersGrid();
+  showToast(`Binder "${name}" added`, 'success');
+}
+
+function deleteBinder(name) {
+  const inUse = DB.database.some(r => r.status === `binder:${name}`);
+  if (inUse && !confirm(`Cards are in this binder. Delete anyway?`)) return;
+  DB.binders = DB.binders.filter(b => b.name !== name);
+  saveToStorage();
+  renderBindersGrid();
+  showToast('Binder deleted', 'info');
+}
+
+// ============================================================
+// DECKS MANAGEMENT
+// ============================================================
+function renderDecksGrid() {
+  const grid = document.getElementById('decks-grid');
+  grid.innerHTML = '';
+  DB.decks.forEach(d => {
+    const card = document.createElement('div');
+    card.className = 'mgmt-card';
+    const copies = DB.database.filter(r => r.status === `deck:${d.name}`).length;
+    card.innerHTML =
+      `<div class="mgmt-card-title">🎴 ${esc(d.name)}</div>` +
+      `<div class="mgmt-card-sub">${esc(d.owner||'')} ${esc(d.description?'· '+d.description:'')}</div>` +
+      `<div class="mgmt-card-rows">${copies} card${copies!==1?'s':''} in deck</div>` +
+      `<div class="mgmt-card-actions">
+        <button class="btn btn-danger btn-sm" onclick="deleteDeck('${esc(d.name)}')">Delete</button>
+      </div>`;
+    grid.appendChild(card);
+  });
+  if (DB.decks.length === 0) grid.innerHTML = '<div style="color:var(--text3);font-size:13px">No decks yet.</div>';
+}
+
+function openAddDeckModal() {
+  showModal('Add Deck', `
+    <div class="form-row">
+      <label class="form-label">Deck Name</label>
+      <input class="form-input" id="deck-name" placeholder="e.g. Fire Starter"/>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Owner (optional)</label>
+      <input class="form-input" id="deck-owner" placeholder="e.g. Nicholas, Wife, Daughter"/>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Description (optional)</label>
+      <input class="form-input" id="deck-desc" placeholder="e.g. Charizard ex deck"/>
+    </div>
+  `, [
+    { label: 'Cancel', cls: 'btn-secondary', action: closeModal },
+    { label: 'Add Deck', cls: 'btn-primary', action: saveDeck }
+  ]);
+}
+
+function saveDeck() {
+  const name = document.getElementById('deck-name').value.trim();
+  if (!name) { showToast('Name required', 'error'); return; }
+  if (DB.decks.find(d => d.name === name)) { showToast('Deck already exists', 'error'); return; }
+  DB.decks.push({ id: slugify(name), name, owner: document.getElementById('deck-owner').value.trim(), description: document.getElementById('deck-desc').value.trim() });
+  saveToStorage();
+  closeModal();
+  renderDecksGrid();
+  showToast(`Deck "${name}" added`, 'success');
+}
+
+function deleteDeck(name) {
+  const inUse = DB.database.some(r => r.status === `deck:${name}`);
+  if (inUse && !confirm(`Cards are in this deck. Delete anyway?`)) return;
+  DB.decks = DB.decks.filter(d => d.name !== name);
+  saveToStorage();
+  renderDecksGrid();
+  showToast('Deck deleted', 'info');
+}
+
+// ============================================================
+// MODAL SYSTEM
+// ============================================================
+function showModal(title, bodyHtml, buttons) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = bodyHtml;
+  const actions = document.getElementById('modal-actions');
+  actions.innerHTML = '';
+  buttons.forEach(b => {
+    const btn = document.createElement('button');
+    btn.className = `btn ${b.cls}`;
+    btn.textContent = b.label;
+    btn.onclick = b.action;
+    actions.appendChild(btn);
+  });
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+});
+
+// ============================================================
+// TOAST
+// ============================================================
+let toastTimer;
+function showToast(msg, type = 'info') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = '', 3000);
+}
+
+// ============================================================
+// UTILITIES
+// ============================================================
+function esc(str) {
+  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function slugify(str) {
+  return (str||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+}
+function normalizeCardId(id) {
+  if (!id) return id;
+  const last = id.lastIndexOf('-');
+  if (last === -1) return id;
+  const set = id.substring(0, last).replace(/^([a-zA-Z]+)0*(\d+(\.\d+)?)$/, '$1$2');
+  const num = id.substring(last + 1).replace(/^0+(\d+.*)$/, '$1');
+  return `${set}-${num}`;
+}
+function typeEmoji(type, game) {
+  if (game && game !== 'Pokemon') {
+    const gmap = { 'YuGiOh':'⚔️', 'Lorcana':'✨', 'Magic: The Gathering':'🌀' };
+    return gmap[game] || '🃏';
+  }
+  const map = { fire:'🔥',water:'💧',grass:'🌿',lightning:'⚡',psychic:'🔮',fighting:'👊',darkness:'🌑',metal:'⚙️',dragon:'🐉',fairy:'✨',colorless:'⭐' };
+  return map[(type||'').toLowerCase().split(',')[0].trim()] || '🃏';
+}
+</script>
+</body>
+</html>
