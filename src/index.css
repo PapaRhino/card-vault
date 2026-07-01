@@ -1,0 +1,43 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0e0f11;
+  --surface:   #16181c;
+  --surface2:  #1e2026;
+  --border:    #2a2d35;
+  --accent:    #c8a84b;
+  --accent2:   #7c5cbf;
+  --text:      #e8e9ec;
+  --text-dim:  #8b8f9a;
+  --radius:    10px;
+  --font:      'Space Grotesk', sans-serif;
+  --mono:      'Space Mono', monospace;
+
+  /* TCG type colours */
+  --fire:       #e8593c;
+  --water:      #3b8bd4;
+  --grass:      #5aa632;
+  --lightning:  #d4a017;
+  --psychic:    #b44fa0;
+  --fighting:   #c75c2a;
+  --darkness:   #4a5568;
+  --metal:      #718096;
+  --dragon:     #1e6fa5;
+  --fairy:      #d48fbf;
+  --colorless:  #718096;
+  --trainer:    #2d7a5f;
+  --energy:     #2d7a5f;
+  --foreign:    #5a4a8a;
+}
+
+html { font-size: 16px; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font-family: var(--font); cursor: pointer; }
+input, select { font-family: var(--font); }
