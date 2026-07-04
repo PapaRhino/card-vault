@@ -4,22 +4,23 @@ import Login from './components/Login'
 import Filters from './components/Filters'
 import CardGrid from './components/CardGrid'
 import CardModal from './components/CardModal'
+import Scanner from './components/Scanner'
 
 const DEFAULT_FILTERS = { search: '', game: '', type: '', subtype: '', status: '' }
 const PAGE_SIZE = 60
 
 export default function App() {
-  const [authed,    setAuthed]    = useState(() => sessionStorage.getItem('tcg_auth') === '1')
-  const [cards,     setCards]     = useState([])
-  const [allCopies, setAllCopies] = useState([])
-  const [loading,   setLoading]   = useState(false)
-  const [error,     setError]     = useState(null)
-  const [filters,   setFilters]   = useState(DEFAULT_FILTERS)
-  const [page,      setPage]      = useState(1)
-  const [selected,  setSelected]  = useState(null)
+  const [authed,      setAuthed]      = useState(() => sessionStorage.getItem('tcg_auth') === '1')
+  const [cards,       setCards]       = useState([])
+  const [allCopies,   setAllCopies]   = useState([])
+  const [loading,     setLoading]     = useState(false)
+  const [error,       setError]       = useState(null)
+  const [filters,     setFilters]     = useState(DEFAULT_FILTERS)
+  const [page,        setPage]        = useState(1)
+  const [selected,    setSelected]    = useState(null)
   const [modalCopies, setModalCopies] = useState([])
+  const [showScanner, setShowScanner] = useState(false)
 
-  // Load all cards + copy counts on first auth
   useEffect(() => {
     if (!authed) return
     loadCards()
@@ -29,7 +30,6 @@ export default function App() {
     setLoading(true)
     setError(null)
     try {
-      // Fetch all cards with copy counts
       const { data: cardData, error: cardErr } = await supabase
         .from('cards')
         .select(`
@@ -42,7 +42,6 @@ export default function App() {
 
       if (cardErr) throw cardErr
 
-      // Fetch all active copies
       const { data: copyData, error: copyErr } = await supabase
         .from('copies')
         .select('id, card_id, status, location_name, condition, grade')
@@ -50,16 +49,14 @@ export default function App() {
 
       if (copyErr) throw copyErr
 
-      // Attach copy counts to cards
       const copyMap = {}
       for (const c of copyData) {
         copyMap[c.card_id] = (copyMap[c.card_id] ?? 0) + 1
       }
 
-      const enriched = cardData.map(c => ({
-        ...c,
-        copy_count: copyMap[c.id] ?? 0,
-      })).filter(c => c.copy_count > 0)
+      const enriched = cardData
+        .map(c => ({ ...c, copy_count: copyMap[c.id] ?? 0 }))
+        .filter(c => c.copy_count > 0)
 
       setCards(enriched)
       setAllCopies(copyData)
@@ -70,7 +67,6 @@ export default function App() {
     }
   }
 
-  // Filter cards client-side
   const filtered = useMemo(() => {
     const q    = filters.search.toLowerCase()
     const game = filters.game
@@ -109,10 +105,8 @@ export default function App() {
 
   const hasMore = paginated.length < filtered.length
 
-  // Reset page on filter change
   useEffect(() => { setPage(1) }, [filters])
 
-  // Open modal
   const openCard = useCallback((card) => {
     const copies = allCopies.filter(c => c.card_id === card.id)
     setSelected(card)
@@ -120,6 +114,14 @@ export default function App() {
   }, [allCopies])
 
   if (!authed) return <Login onLogin={() => setAuthed(true)} />
+
+  // Show scanner fullscreen
+  if (showScanner) return (
+    <Scanner onClose={() => {
+      setShowScanner(false)
+      loadCards() // refresh after scanning session
+    }} />
+  )
 
   return (
     <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
@@ -138,23 +140,41 @@ export default function App() {
         }}>
           TCG Archive
         </h1>
-        <button
-          onClick={loadCards}
-          disabled={loading}
-          style={{
-            marginLeft: 'auto', padding: '0.35rem 0.75rem',
-            background: 'transparent', border: '1px solid var(--border)',
-            borderRadius: 'var(--radius)', color: 'var(--text-dim)',
-            fontSize: '0.75rem',
-          }}
-        >
-          {loading ? '…' : '↻ Refresh'}
-        </button>
+
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
+          {/* Scanner button */}
+          <button
+            onClick={() => setShowScanner(true)}
+            style={{
+              padding: '0.35rem 0.9rem',
+              background: 'var(--accent)', color: '#0e0f11',
+              border: 'none', borderRadius: 'var(--radius)',
+              fontWeight: 700, fontSize: '0.8rem',
+            }}
+          >
+            📷 Scan
+          </button>
+
+          <button
+            onClick={loadCards}
+            disabled={loading}
+            style={{
+              padding: '0.35rem 0.75rem',
+              background: 'transparent', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)', color: 'var(--text-dim)',
+              fontSize: '0.75rem',
+            }}
+          >
+            {loading ? '…' : '↻ Refresh'}
+          </button>
+        </div>
       </header>
 
       {/* Main */}
-      <main style={{ flex: 1, padding: '1rem 1.25rem', maxWidth: 1400, margin: '0 auto', width: '100%' }}>
-        {/* Filters */}
+      <main style={{
+        flex: 1, padding: '1rem 1.25rem',
+        maxWidth: 1400, margin: '0 auto', width: '100%',
+      }}>
         <div style={{ marginBottom: '1rem' }}>
           <Filters
             filters={filters}
@@ -163,7 +183,6 @@ export default function App() {
           />
         </div>
 
-        {/* Error */}
         {error && (
           <div style={{
             background: '#3d1a1a', border: '1px solid #7a2a2a',
@@ -174,18 +193,15 @@ export default function App() {
           </div>
         )}
 
-        {/* Loading */}
         {loading && (
           <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-dim)' }}>
             Loading collection…
           </div>
         )}
 
-        {/* Grid */}
         {!loading && (
           <>
             <CardGrid cards={paginated} onCardClick={openCard} />
-
             {hasMore && (
               <div style={{ textAlign: 'center', marginTop: '2rem' }}>
                 <button
@@ -205,7 +221,6 @@ export default function App() {
         )}
       </main>
 
-      {/* Modal */}
       {selected && (
         <CardModal
           card={selected}
