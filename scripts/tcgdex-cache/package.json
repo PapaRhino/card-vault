@@ -1,0 +1,16 @@
+{
+  "name": "tcgdex-cache-refresh",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Monthly job to rebuild the tcgdex_card_index Supabase table from the live TCGdex API",
+  "main": "refresh-tcgdex-index.js",
+  "scripts": {
+    "refresh": "node refresh-tcgdex-index.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
