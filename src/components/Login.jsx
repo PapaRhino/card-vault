@@ -58,11 +58,16 @@ export default function Login({ onLogin }) {
     onLogin()
   }
 
+  const PIN_LENGTH = 6
+
   function handleKeyPress(digit) {
     if (submitting) return
     const next = pin + digit
     setPin(next)
     setError('')
+    if (next.length === PIN_LENGTH) {
+      submitPin(next)
+    }
   }
 
   function handleBackspace() {
@@ -140,7 +145,7 @@ export default function Login({ onLogin }) {
 
         {/* PIN dots display */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
-          {Array.from({ length: Math.max(pin.length, 4) }).map((_, i) => (
+          {Array.from({ length: PIN_LENGTH }).map((_, i) => (
             <div key={i} style={{
               width: 14, height: 14, borderRadius: '50%',
               background: i < pin.length ? 'var(--accent)' : 'var(--surface2)',
