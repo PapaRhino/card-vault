@@ -4,13 +4,14 @@ import Login from './components/Login'
 import Filters from './components/Filters'
 import CardGrid from './components/CardGrid'
 import CardModal from './components/CardModal'
-import Scanner from './components/Scanner'
 
 const DEFAULT_FILTERS = { search: '', game: '', type: '', subtype: '', status: '' }
 const PAGE_SIZE = 60
 
 export default function App() {
-  const [authed,      setAuthed]      = useState(() => sessionStorage.getItem('tcg_auth') === '1')
+  const [session,     setSession]     = useState(null)
+  const [role,        setRole]        = useState(null)  // 'admin' | 'viewer'
+  const [authLoading, setAuthLoading] = useState(true)
   const [cards,       setCards]       = useState([])
   const [allCopies,   setAllCopies]   = useState([])
   const [loading,     setLoading]     = useState(false)
@@ -19,12 +20,37 @@ export default function App() {
   const [page,        setPage]        = useState(1)
   const [selected,    setSelected]    = useState(null)
   const [modalCopies, setModalCopies] = useState([])
-  const [showScanner, setShowScanner] = useState(false)
+
+  // Watch for login/logout, and load the signed-in user's role once authed
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      setAuthLoading(false)
+    })
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+
+    return () => listener.subscription.unsubscribe()
+  }, [])
 
   useEffect(() => {
-    if (!authed) return
+    if (!session) { setRole(null); return }
+    supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', session.user.id)
+      .single()
+      .then(({ data }) => setRole(data?.role ?? 'viewer'))
+  }, [session])
+
+  const isAdmin = role === 'admin'
+
+  useEffect(() => {
+    if (!session) return
     loadCards()
-  }, [authed])
+  }, [session])
 
   async function loadCards() {
     setLoading(true)
@@ -113,15 +139,8 @@ export default function App() {
     setModalCopies(copies)
   }, [allCopies])
 
-  if (!authed) return <Login onLogin={() => setAuthed(true)} />
-
-  // Show scanner fullscreen
-  if (showScanner) return (
-    <Scanner onClose={() => {
-      setShowScanner(false)
-      loadCards() // refresh after scanning session
-    }} />
-  )
+  if (authLoading) return null
+  if (!session) return <Login onLogin={() => {}} />
 
   return (
     <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
@@ -141,19 +160,16 @@ export default function App() {
           TCG Archive
         </h1>
 
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
-          {/* Scanner button */}
-          <button
-            onClick={() => setShowScanner(true)}
-            style={{
-              padding: '0.35rem 0.9rem',
-              background: 'var(--accent)', color: '#0e0f11',
-              border: 'none', borderRadius: 'var(--radius)',
-              fontWeight: 700, fontSize: '0.8rem',
-            }}
-          >
-            📷 Scan
-          </button>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          {!isAdmin && (
+            <span style={{
+              fontSize: '0.7rem', color: 'var(--text-dim)',
+              border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+              padding: '0.25rem 0.6rem',
+            }}>
+              view only
+            </span>
+          )}
 
           <button
             onClick={loadCards}
@@ -166,6 +182,18 @@ export default function App() {
             }}
           >
             {loading ? '…' : '↻ Refresh'}
+          </button>
+
+          <button
+            onClick={() => supabase.auth.signOut()}
+            style={{
+              padding: '0.35rem 0.75rem',
+              background: 'transparent', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)', color: 'var(--text-dim)',
+              fontSize: '0.75rem',
+            }}
+          >
+            Sign out
           </button>
         </div>
       </header>
