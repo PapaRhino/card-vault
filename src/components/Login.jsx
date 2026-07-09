@@ -1,15 +1,12 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 
-// Internal-only email domain — never shown to users, just how Supabase Auth
-// identifies accounts under the hood. Profiles are matched to auth accounts
-// by a `username` you choose when creating each account (see setup notes).
-const EMAIL_DOMAIN = 'family.card-vault.internal'
+const PIN_LENGTH = 6
 
 export default function Login({ onLogin }) {
   const [profiles, setProfiles] = useState([])
   const [loadingProfiles, setLoadingProfiles] = useState(true)
-  const [selected, setSelected] = useState(null)  // the chosen profile
+  const [selected, setSelected] = useState(null)
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -22,7 +19,7 @@ export default function Login({ onLogin }) {
     setLoadingProfiles(true)
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, display_name, avatar, username')
+      .select('id, username, display_name, avatar')
       .order('display_name')
 
     if (!error) setProfiles(data ?? [])
@@ -40,25 +37,31 @@ export default function Login({ onLogin }) {
     setSubmitting(true)
     setError('')
 
-    const email = `${selected.username}@${EMAIL_DOMAIN}`
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: selected.username, pin: pinValue }),
+      })
+      const data = await res.json()
 
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password: pinValue,
-    })
+      if (!res.ok) {
+        setError('Wrong PIN, try again')
+        setPin('')
+        setSubmitting(false)
+        return
+      }
 
-    setSubmitting(false)
-
-    if (authError) {
-      setError('Wrong PIN, try again')
+      // Remember who's logged in for this browser session
+      sessionStorage.setItem('tcg_profile', JSON.stringify(data.profile))
+      onLogin(data.profile)
+    } catch (err) {
+      console.error(err)
+      setError('Something went wrong, try again')
       setPin('')
-      return
+      setSubmitting(false)
     }
-
-    onLogin()
   }
-
-  const PIN_LENGTH = 6
 
   function handleKeyPress(digit) {
     if (submitting) return
@@ -72,10 +75,6 @@ export default function Login({ onLogin }) {
 
   function handleBackspace() {
     setPin(p => p.slice(0, -1))
-  }
-
-  function handleSubmit() {
-    submitPin(pin)
   }
 
   const wrapperStyle = {
@@ -143,7 +142,6 @@ export default function Login({ onLogin }) {
           Hi {selected.display_name}, enter your PIN
         </h1>
 
-        {/* PIN dots display */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
           {Array.from({ length: PIN_LENGTH }).map((_, i) => (
             <div key={i} style={{
@@ -158,7 +156,6 @@ export default function Login({ onLogin }) {
           <p style={{ color: '#e05c5c', fontSize: '0.8rem', marginBottom: 12 }}>{error}</p>
         )}
 
-        {/* Number pad */}
         <div style={{
           display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10,
           marginBottom: 16,
@@ -168,7 +165,7 @@ export default function Login({ onLogin }) {
           ))}
           <button onClick={handleBackspace} style={keypadStyle}>⌫</button>
           <button key="0" onClick={() => handleKeyPress('0')} style={keypadStyle}>0</button>
-          <button onClick={handleSubmit} style={{ ...keypadStyle, background: 'var(--accent)', color: '#0e0f11' }}>✓</button>
+          <span />
         </div>
       </div>
     </div>
