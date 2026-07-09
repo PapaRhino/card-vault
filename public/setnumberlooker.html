@@ -376,7 +376,7 @@ async function findOrCreateCard(card) {
             trainer_subtype: card.trainerType || null,
             pokedex_number: (card.dexId && card.dexId[0]) || null,
             artist: card.illustrator || null,
-            image_url: card.image || null,
+            image_url: card.image + "/high.webp" || null,
             needs_review: false,
             // new columns for the current system
             tcgdex_id: card.id,
