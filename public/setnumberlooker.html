@@ -307,10 +307,14 @@ const SUPABASE_ANON_KEY = "sb_publishable_hmRzJXH_Be9TbdalcPO9fQ_xOrcOUhn";
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ─────────────────────────────
-// Edit these 3 to whatever your most common binder/deck locations are —
-// this is the only thing you should need to touch to customize the quick-add buttons.
+// Edit these to whatever your most common binder/deck locations are.
+// status must be one of: 'box', 'binder', 'deck' (matches the copy_status enum)
 // ─────────────────────────────
-const QUICK_LOCATIONS = ["Main Binder", "Trade Binder", "Kid Binder"];
+const QUICK_LOCATIONS = [
+    { name: "Main Binder", status: "binder" },
+    { name: "Trade Binder", status: "binder" },
+    { name: "Kid Binder",  status: "binder" },
+];
 
 const TRAINER_TYPE_CODES = { Supporter: "Su", Item: "It", Tool: "To", Stadium: "St" };
 
@@ -388,12 +392,12 @@ async function findOrCreateCard(card) {
     return inserted.id;
 }
 
-async function addCopyToLocation(cardId, locationName, statusEl) {
+async function addCopyToLocation(cardId, locationName, status, statusEl) {
     statusEl.textContent = "Adding...";
     try {
         const { error } = await supabaseClient
             .from("copies")
-            .insert({ card_id: cardId, location_name: locationName, status: "active" });
+            .insert({ card_id: cardId, location_name: locationName, status: status });
 
         if (error) throw error;
         statusEl.textContent = `Added to ${locationName}`;
@@ -560,10 +564,15 @@ async function showCard(cardId) {
         <div class="sectionTitle">Add to Collection</div>
         <button id="bulkAddBtn" style="margin-bottom:8px;">+ Add to Bulk (${bulkLocation})</button>
         <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
-            ${QUICK_LOCATIONS.map((loc, i) => `<button class="quickLocBtn" data-loc="${loc}">+ ${loc}</button>`).join("")}
+            ${QUICK_LOCATIONS.map(loc => `<button class="quickLocBtn" data-loc="${loc.name}" data-status="${loc.status}">+ ${loc.name}</button>`).join("")}
         </div>
         <div style="display:flex; gap:6px;">
             <input id="customLocInput" placeholder="Other location..." style="flex:1;" />
+            <select id="customStatusSelect">
+                <option value="binder">Binder</option>
+                <option value="deck">Deck</option>
+                <option value="box">Box</option>
+            </select>
             <button id="customAddBtn">Add</button>
         </div>
         <div id="${statusId}" style="margin-top:8px; font-size:13px;"></div>
@@ -573,21 +582,22 @@ async function showCard(cardId) {
 
     document.getElementById("bulkAddBtn").onclick = async () => {
         const cardId = await findOrCreateCard(card);
-        addCopyToLocation(cardId, bulkLocation, statusEl);
+        addCopyToLocation(cardId, bulkLocation, "box", statusEl);
     };
 
     document.querySelectorAll(".quickLocBtn").forEach(btn => {
         btn.onclick = async () => {
             const cardId = await findOrCreateCard(card);
-            addCopyToLocation(cardId, btn.dataset.loc, statusEl);
+            addCopyToLocation(cardId, btn.dataset.loc, btn.dataset.status, statusEl);
         };
     });
 
     document.getElementById("customAddBtn").onclick = async () => {
         const loc = document.getElementById("customLocInput").value.trim();
+        const status = document.getElementById("customStatusSelect").value;
         if (!loc) return;
         const cardId = await findOrCreateCard(card);
-        addCopyToLocation(cardId, loc, statusEl);
+        addCopyToLocation(cardId, loc, status, statusEl);
     };
 }
 
