@@ -152,6 +152,20 @@ export default function App() {
             </span>
           )}
 
+          {isAdmin && (
+            <a
+              href="/setnumberlooker.html"
+              style={{
+                padding: '0.35rem 0.75rem',
+                background: 'var(--accent)', color: '#0e0f11',
+                border: 'none', borderRadius: 'var(--radius)',
+                fontSize: '0.75rem', fontWeight: 700, textDecoration: 'none',
+              }}
+            >
+              + Add Cards
+            </a>
+          )}
+
           <button
             onClick={loadCards}
             disabled={loading}
