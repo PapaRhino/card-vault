@@ -22,14 +22,15 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing username or pin' })
   }
 
-  // Look up the profile by username
+  // Look up the profile by username (case-insensitive, trimmed)
   const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
     .select('id, username, display_name, avatar, role')
-    .eq('username', username.toLowerCase().trim())
+    .ilike('username', username.trim())
     .single()
 
   if (profileError || !profile) {
+    console.error('Profile lookup failed:', profileError)
     return res.status(401).json({ error: 'Invalid username or PIN' })
   }
 
@@ -40,7 +41,8 @@ export default async function handler(req, res) {
     .eq('profile_id', profile.id)
     .single()
 
-  if (pinError || !pinRow || pinRow.pin !== pin) {
+  if (pinError || !pinRow || pinRow.pin.trim() !== pin.trim()) {
+    console.error('Pin check failed:', pinError)
     return res.status(401).json({ error: 'Invalid username or PIN' })
   }
 
