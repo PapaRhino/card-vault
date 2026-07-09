@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TCGdex Number Scanner</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+<style>
+    :root {
+        --bg:        #0e0f11;
+        --surface:   #16181c;
+        --surface2:  #1e2026;
+        --border:    #2a2d35;
+        --accent:    #c8a84b;
+        --accent2:   #7c5cbf;
+        --text:      #e8e9ec;
+        --text-dim:  #8b8f9a;
+        --radius:    10px;
+        --font:      'Space Grotesk', sans-serif;
+        --mono:      'Space Mono', monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+        font-family: var(--font);
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100dvh;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    button, input { font-family: var(--font); }
+
+    header {
+        border-bottom: 1px solid var(--border);
+        padding: 0.75rem 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: rgba(14,15,17,0.92);
+        backdrop-filter: blur(8px);
+    }
+
+    header .logo {
+        font-size: 1.5rem;
+    }
+
+    header h1 {
+        font-family: var(--mono);
+        font-size: 1rem;
+        color: var(--accent);
+        letter-spacing: 0.05em;
+        margin: 0;
+    }
+
+    header a.backLink {
+        margin-left: auto;
+        padding: 0.35rem 0.75rem;
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        color: var(--text-dim);
+        font-size: 0.75rem;
+        text-decoration: none;
+    }
+
+    .pageBody {
+        padding: 1.25rem;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .modalSection {
+        margin-top: 14px;
+    }
+
+    .sectionTitle {
+        font-weight: bold;
+        font-size: 13px;
+        margin-bottom: 6px;
+        color: var(--text-dim);
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .attackRow {
+        margin-bottom: 6px;
+    }
+
+    .attackName {
+        font-weight: bold;
+        color: var(--text);
+    }
+
+    .attackMeta {
+        font-size: 12px;
+        color: var(--text-dim);
+    }
+
+    .subtle {
+        font-size: 12px;
+        color: var(--text-dim);
+        margin-top: 2px;
+    }
+
+    .modalOverlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,.75);
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+
+    .modalWindow {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        width: 900px;
+        max-width: 95vw;
+        max-height: 90vh;
+        overflow: auto;
+        border-radius: 16px;
+        padding: 20px;
+        position: relative;
+        color: var(--text);
+    }
+
+    .closeButton {
+        position: absolute;
+        top: 10px;
+        right: 14px;
+        font-size: 28px;
+        cursor: pointer;
+        user-select: none;
+        color: var(--text-dim);
+    }
+
+    .modalContent {
+        display: flex;
+        gap: 24px;
+    }
+
+    .modalContent img {
+        width: 320px;
+        flex-shrink: 0;
+        border-radius: var(--radius);
+    }
+
+    .infoTable {
+        display: grid;
+        grid-template-columns: 140px 1fr;
+        gap: 8px 12px;
+        align-content: start;
+    }
+
+    .infoLabel {
+        font-weight: bold;
+        color: var(--text-dim);
+    }
+
+    h1 {
+        font-size: 18px;
+        margin-bottom: 12px;
+    }
+
+    .search-bar {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+
+    input {
+        flex: 1;
+        padding: 10px;
+        font-size: 16px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        color: var(--text);
+    }
+
+    button {
+        padding: 10px 14px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        color: var(--text);
+    }
+
+    button:hover { border-color: var(--accent); }
+
+    .search-bar button, #bulkAddBtn {
+        background: var(--accent);
+        color: #0e0f11;
+        border: none;
+    }
+
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 12px;
+    }
+
+    .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 8px;
+        text-align: center;
+        cursor: pointer;
+        position: relative;
+    }
+
+    .card:hover { border-color: var(--accent); }
+
+    .card img {
+        width: 100%;
+        border-radius: 6px;
+    }
+
+    .name {
+        font-size: 12px;
+        margin-top: 6px;
+        color: var(--text);
+    }
+
+    .meta {
+        font-size: 10px;
+        color: var(--text-dim);
+    }
+
+    .ruleBoxBadge {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        background: var(--accent2);
+        color: white;
+        font-size: 9px;
+        font-weight: bold;
+        padding: 2px 5px;
+        border-radius: 4px;
+    }
+
+    .groupHeader {
+        grid-column: 1 / -1;
+        margin-top: 18px;
+        font-weight: bold;
+        font-size: 14px;
+        padding-top: 10px;
+        border-top: 1px solid var(--border);
+        color: var(--text-dim);
+        font-family: var(--mono);
+    }
+</style>
+</head>
+
+<body>
+
+<header>
+    <span class="logo">🃏</span>
+    <h1>TCG Archive — Add Cards</h1>
+    <a class="backLink" href="/">← Browse Collection</a>
+</header>
+
+<div class="pageBody">
+
+<h1>TCGdex Number Scanner</h1>
+
+<div class="search-bar">
+    <input id="searchInput" placeholder="Type number (e.g. 082) or a name" />
+    <button onclick="searchCards()">Search</button>
+</div>
+
+<div id="results" class="grid"></div>
+
+</div>
+<!-- /.pageBody -->
+
+<script>
+// ─────────────────────────────
+// SUPABASE SETUP
+// Fill in your project URL + anon/public key
+// (Settings -> API Keys in the Supabase dashboard).
+// The anon key is safe to expose in client-side code —
+// it only has the read-only access granted by RLS.
+// ─────────────────────────────
+const SUPABASE_URL = "https://upfxsboakluohkuoagie.supabase.co";
+const SUPABASE_ANON_KEY = "PASTE_YOUR_ANON_PUBLIC_KEY_HERE";
+
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ─────────────────────────────
+// Edit these 3 to whatever your most common binder/deck locations are —
+// this is the only thing you should need to touch to customize the quick-add buttons.
+// ─────────────────────────────
+const QUICK_LOCATIONS = ["Main Binder", "Trade Binder", "Kid Binder"];
+
+const TRAINER_TYPE_CODES = { Supporter: "Su", Item: "It", Tool: "To", Stadium: "St" };
+
+// Cache of full detail fetched from live TCGdex, keyed by card id.
+// Populated lazily — only when a card is actually clicked.
+const cardDetailCache = {};
+
+function stripSuffix(name, suffix) {
+    if (!suffix) return name;
+    const escaped = suffix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return name.replace(new RegExp(`\\s*${escaped}$`), "").trim();
+}
+
+function categoryCode(card) {
+    if (card.category === "Pokemon") return "P";
+    if (card.category === "Trainer") {
+        return TRAINER_TYPE_CODES[card.trainerType] || card.trainerType || "Tr";
+    }
+    if (card.category === "Energy") {
+        return card.energyType === "Special" ? "SE" : "E";
+    }
+    return "Unk";
+}
+
+function computeBulkLocation(card) {
+    const baseName = stripSuffix(card.name, card.suffix);
+    const letter = (baseName.trim()[0] || "?").toUpperCase();
+    const cat = categoryCode(card);
+    const ruleBoxSuffix = (card.category === "Pokemon" && card.suffix) ? ".2" : "";
+    return `PTCG.${cat}.${letter}${ruleBoxSuffix}`;
+}
+
+// Finds an existing `cards` row for this TCGdex card, or creates one.
+// Returns the cards.id to attach a new copy to.
+async function findOrCreateCard(card) {
+    const { data: existing, error: findErr } = await supabaseClient
+        .from("cards")
+        .select("id")
+        .eq("tcgdex_id", card.id)
+        .maybeSingle();
+
+    if (findErr) throw findErr;
+    if (existing) return existing.id;
+
+    const baseName = stripSuffix(card.name, card.suffix);
+    const ruleBox = card.category === "Pokemon" && Boolean(card.suffix);
+
+    const { data: inserted, error: insertErr } = await supabaseClient
+        .from("cards")
+        .insert({
+            // existing columns your browsing UI already reads
+            game: "Pokemon",
+            card_name: card.name,
+            set_name: card.set?.name || null,
+            set_code: card.set?.id || null,
+            card_number: card.localId || null,
+            rarity: card.rarity || null,
+            pokemon_type: (card.types && card.types[0]) || null,
+            trainer_subtype: card.trainerType || null,
+            pokedex_number: (card.dexId && card.dexId[0]) || null,
+            artist: card.illustrator || null,
+            image_url: card.image || null,
+            needs_review: false,
+            // new columns for the current system
+            tcgdex_id: card.id,
+            base_name: baseName,
+            category: card.category,
+            rule_box: ruleBox,
+            card_data: card,
+        })
+        .select("id")
+        .single();
+
+    if (insertErr) throw insertErr;
+    return inserted.id;
+}
+
+async function addCopyToLocation(cardId, locationName, statusEl) {
+    statusEl.textContent = "Adding...";
+    try {
+        const { error } = await supabaseClient
+            .from("copies")
+            .insert({ card_id: cardId, location_name: locationName, status: "active" });
+
+        if (error) throw error;
+        statusEl.textContent = `Added to ${locationName}`;
+        statusEl.style.color = "green";
+    } catch (err) {
+        console.error(err);
+        statusEl.textContent = "Failed to add — see console";
+        statusEl.style.color = "#c33";
+    }
+}
+
+async function showCard(cardId) {
+    const modal = document.getElementById("cardModal");
+    modal.style.display = "flex";
+
+    // Show a lightweight loading state in the modal while we fetch detail
+    document.getElementById("modalName").textContent = "Loading...";
+    document.querySelectorAll(".modalSection").forEach(e => e.remove());
+
+    let card = cardDetailCache[cardId];
+
+    if (!card) {
+        try {
+            const res = await fetch(`https://api.tcgdex.net/v2/en/cards/${cardId}`);
+            card = await res.json();
+            cardDetailCache[cardId] = card;
+        } catch (err) {
+            console.error("Failed to fetch card detail:", err);
+            document.getElementById("modalName").textContent = "Failed to load card detail";
+            return;
+        }
+    }
+
+    console.log(card);
+
+    // IMAGE
+    document.getElementById("modalImage").src =
+        card.image ? card.image + "/high.webp" : "";
+
+    // ─────────────────────────────
+    // STATIC FIELDS (DO NOT TOUCH INNER HTML)
+    // ─────────────────────────────
+    document.getElementById("modalName").textContent = card.name || "";
+    document.getElementById("modalSet").textContent = card.set?.name || "";
+    document.getElementById("modalNumber").textContent = card.localId || "";
+    document.getElementById("modalCategory").textContent = card.category || "";
+    document.getElementById("modalTypes").textContent =
+        card.types ? card.types.join(", ") : "";
+
+    const info = document.querySelector(".infoTable");
+
+    // Remove ONLY old dynamic sections (not base fields)
+    document.querySelectorAll(".modalSection").forEach(e => e.remove());
+
+    // ─────────────────────────────
+    // DESCRIPTION
+    // ─────────────────────────────
+    if (card.description) {
+        const block = document.createElement("div");
+        block.className = "modalSection";
+        block.innerHTML = `
+            <div class="sectionTitle">Description</div>
+            <div class="subtle">${card.description}</div>
+        `;
+        info.appendChild(block);
+    }
+
+    // ─────────────────────────────
+    // ABILITIES
+    // ─────────────────────────────
+    if (card.abilities && card.abilities.length) {
+        const block = document.createElement("div");
+        block.className = "modalSection";
+
+        let html = `<div class="sectionTitle">Abilities</div>`;
+
+        card.abilities.forEach(a => {
+            html += `
+                <div class="attackRow">
+                    <div class="attackName">${a.name}</div>
+                    <div class="subtle">${a.effect || ""}</div>
+                </div>
+            `;
+        });
+
+        block.innerHTML = html;
+        info.appendChild(block);
+    }
+
+    // ─────────────────────────────
+    // ATTACKS (NO ENERGY COST, INCLUDE EFFECT)
+    // ─────────────────────────────
+    if (card.attacks && card.attacks.length) {
+        const block = document.createElement("div");
+        block.className = "modalSection";
+
+        let html = `<div class="sectionTitle">Attacks</div>`;
+
+        card.attacks.forEach(a => {
+            html += `
+                <div class="attackRow">
+                    <div class="attackName">
+                        ${a.name || ""}
+                        ${a.damage ? " — " + a.damage : ""}
+                    </div>
+                    ${a.effect ? `<div class="subtle">${a.effect}</div>` : ""}
+                </div>
+            `;
+        });
+
+        block.innerHTML = html;
+        info.appendChild(block);
+    }
+
+    // ─────────────────────────────
+    // TRAINER / ENERGY EFFECT TEXT
+    // ─────────────────────────────
+    if (card.effect) {
+        const block = document.createElement("div");
+        block.className = "modalSection";
+        block.innerHTML = `
+            <div class="sectionTitle">Effect</div>
+            <div class="subtle">${card.effect}</div>
+        `;
+        info.appendChild(block);
+    }
+
+    // ─────────────────────────────
+    // BATTLE INFO
+    // ─────────────────────────────
+    if (card.weaknesses || card.retreat !== undefined) {
+        const block = document.createElement("div");
+        block.className = "modalSection";
+
+        let html = `<div class="sectionTitle">Battle Info</div>`;
+
+        if (card.weaknesses) {
+            html += `<div class="subtle">
+                Weakness: ${card.weaknesses.map(w => `${w.type} ${w.value}`).join(", ")}
+            </div>`;
+        }
+
+        if (card.retreat !== undefined) {
+            html += `<div class="subtle">
+                Retreat: ${card.retreat}
+            </div>`;
+        }
+
+        block.innerHTML = html;
+        info.appendChild(block);
+    }
+
+    // SHOW MODAL
+    document.getElementById("cardModal").style.display = "flex";
+
+    // ─────────────────────────────
+    // ADD TO COLLECTION
+    // ─────────────────────────────
+    const addSection = document.getElementById("addToCollection");
+    const bulkLocation = computeBulkLocation(card);
+    const statusId = "addStatus";
+
+    addSection.innerHTML = `
+        <div class="sectionTitle">Add to Collection</div>
+        <button id="bulkAddBtn" style="margin-bottom:8px;">+ Add to Bulk (${bulkLocation})</button>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
+            ${QUICK_LOCATIONS.map((loc, i) => `<button class="quickLocBtn" data-loc="${loc}">+ ${loc}</button>`).join("")}
+        </div>
+        <div style="display:flex; gap:6px;">
+            <input id="customLocInput" placeholder="Other location..." style="flex:1;" />
+            <button id="customAddBtn">Add</button>
+        </div>
+        <div id="${statusId}" style="margin-top:8px; font-size:13px;"></div>
+    `;
+
+    const statusEl = document.getElementById(statusId);
+
+    document.getElementById("bulkAddBtn").onclick = async () => {
+        const cardId = await findOrCreateCard(card);
+        addCopyToLocation(cardId, bulkLocation, statusEl);
+    };
+
+    document.querySelectorAll(".quickLocBtn").forEach(btn => {
+        btn.onclick = async () => {
+            const cardId = await findOrCreateCard(card);
+            addCopyToLocation(cardId, btn.dataset.loc, statusEl);
+        };
+    });
+
+    document.getElementById("customAddBtn").onclick = async () => {
+        const loc = document.getElementById("customLocInput").value.trim();
+        if (!loc) return;
+        const cardId = await findOrCreateCard(card);
+        addCopyToLocation(cardId, loc, statusEl);
+    };
+}
+
+function closeModal() {
+    document.getElementById("cardModal").style.display = "none";
+}
+
+window.addEventListener("keydown", e => {
+    if (e.key === "Escape") closeModal();
+});
+
+async function searchCards() {
+    const query = document.getElementById("searchInput").value.trim();
+    const resultsDiv = document.getElementById("results");
+
+    if (!query) return;
+
+    resultsDiv.innerHTML = "Loading...";
+
+    const isNumber = /^\d+$/.test(query);
+
+    try {
+        /* -----------------------------
+           QUERY THE SUPABASE CACHE
+           (fast — no live TCGdex calls for search)
+        ------------------------------*/
+        let supaQuery = supabaseClient.from("tcgdex_card_index").select("*");
+
+        supaQuery = isNumber
+            ? supaQuery.eq("local_id_num", Number(query))
+            : supaQuery.ilike("base_name", `%${query}%`);
+
+        const { data: rows, error } = await supaQuery;
+
+        if (error) {
+            console.error(error);
+            resultsDiv.innerHTML = "<p>Error querying card index</p>";
+            return;
+        }
+
+        if (!rows || rows.length === 0) {
+            resultsDiv.innerHTML = "<p>No matches found</p>";
+            return;
+        }
+
+        /* -----------------------------
+           GROUPING
+           Pokemon groups by types[0]; Trainer by trainer_type;
+           Energy by energy_type.
+        ------------------------------*/
+        const grouped = {};
+
+        rows.forEach(row => {
+            const category = row.category || "Unknown";
+            let subtype = "None";
+
+            if (category === "Pokemon") {
+                subtype = (row.types && row.types[0]) || "None";
+            } else if (category === "Trainer") {
+                subtype = row.trainer_type || "None";
+            } else if (category === "Energy") {
+                subtype = row.energy_type || "None";
+            }
+
+            const key = `${category}::${subtype}`;
+
+            if (!grouped[key]) grouped[key] = [];
+            grouped[key].push(row);
+        });
+
+        Object.keys(grouped).forEach(key => {
+            grouped[key].sort((a, b) => a.base_name.localeCompare(b.base_name));
+        });
+
+        /* -----------------------------
+           RENDER
+        ------------------------------*/
+        resultsDiv.innerHTML = "";
+
+        Object.keys(grouped)
+            .sort()
+            .forEach(key => {
+
+                const [category, subtype] = key.split("::");
+
+                const header = document.createElement("div");
+                header.className = "groupHeader";
+                header.textContent = `${category} - ${subtype}`;
+                resultsDiv.appendChild(header);
+
+                grouped[key].forEach(row => {
+
+                    const div = document.createElement("div");
+                    div.className = "card";
+
+                    if (row.rule_box) {
+                        const badge = document.createElement("div");
+                        badge.className = "ruleBoxBadge";
+                        badge.textContent = "RULE BOX";
+                        div.appendChild(badge);
+                    }
+
+                    const img = document.createElement("img");
+                    img.src = row.image ? row.image + "/high.webp" : "";
+                    img.onerror = () => img.style.display = "none";
+
+                    const name = document.createElement("div");
+                    name.className = "name";
+                    name.textContent = row.name;
+
+                    const meta = document.createElement("div");
+                    meta.className = "meta";
+                    meta.textContent = `${row.set_name} · ${row.local_id}`;
+
+                    div.appendChild(img);
+                    div.appendChild(name);
+                    div.appendChild(meta);
+
+                    div.onclick = () => showCard(row.id);
+
+                    resultsDiv.appendChild(div);
+                });
+            });
+
+    } catch (err) {
+        console.error(err);
+        resultsDiv.innerHTML = "<p>Error loading cards</p>";
+    }
+}
+
+document.getElementById("searchInput").addEventListener("keydown", function(e) {
+    if (e.key === "Enter") searchCards();
+});
+</script>
+<div id="cardModal" class="modalOverlay" onclick="closeModal()">
+
+    <div class="modalWindow" onclick="event.stopPropagation()">
+
+        <div class="closeButton" onclick="closeModal()">
+            &times;
+        </div>
+
+        <div class="modalContent">
+
+            <img id="modalImage">
+
+            <div class="infoTable">
+
+                <div class="infoLabel">Name</div>
+                <div id="modalName"></div>
+
+                <div class="infoLabel">Set</div>
+                <div id="modalSet"></div>
+
+                <div class="infoLabel">Number</div>
+                <div id="modalNumber"></div>
+
+                <div class="infoLabel">Category</div>
+                <div id="modalCategory"></div>
+
+                <div class="infoLabel">Types</div>
+                <div id="modalTypes"></div>
+
+            </div>
+
+        </div>
+
+        <div id="addToCollection" class="modalSection"></div>
+
+    </div>
+
+</div>
+</body>
+</html>
