@@ -77,6 +77,22 @@ export default function Login({ onLogin }) {
     setPin(p => p.slice(0, -1))
   }
 
+  // Let a physical keyboard type the PIN too, not just on-screen taps
+  useEffect(() => {
+    if (!selected) return
+
+    function onKeyDown(e) {
+      if (e.key >= '0' && e.key <= '9') {
+        handleKeyPress(e.key)
+      } else if (e.key === 'Backspace') {
+        handleBackspace()
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [selected, pin, submitting])
+
   const wrapperStyle = {
     minHeight: '100dvh', display: 'flex',
     alignItems: 'center', justifyContent: 'center',
