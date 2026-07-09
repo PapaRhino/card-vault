@@ -9,9 +9,10 @@ const DEFAULT_FILTERS = { search: '', game: '', type: '', subtype: '', status: '
 const PAGE_SIZE = 60
 
 export default function App() {
-  const [session,     setSession]     = useState(null)
-  const [role,        setRole]        = useState(null)  // 'admin' | 'viewer'
-  const [authLoading, setAuthLoading] = useState(true)
+  const [profile,     setProfile]     = useState(() => {
+    const stored = sessionStorage.getItem('tcg_profile')
+    return stored ? JSON.parse(stored) : null
+  })
   const [cards,       setCards]       = useState([])
   const [allCopies,   setAllCopies]   = useState([])
   const [loading,     setLoading]     = useState(false)
@@ -21,36 +22,17 @@ export default function App() {
   const [selected,    setSelected]    = useState(null)
   const [modalCopies, setModalCopies] = useState([])
 
-  // Watch for login/logout, and load the signed-in user's role once authed
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setAuthLoading(false)
-    })
+  const isAdmin = profile?.role === 'admin'
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-    })
-
-    return () => listener.subscription.unsubscribe()
-  }, [])
+  function signOut() {
+    sessionStorage.removeItem('tcg_profile')
+    setProfile(null)
+  }
 
   useEffect(() => {
-    if (!session) { setRole(null); return }
-    supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', session.user.id)
-      .single()
-      .then(({ data }) => setRole(data?.role ?? 'viewer'))
-  }, [session])
-
-  const isAdmin = role === 'admin'
-
-  useEffect(() => {
-    if (!session) return
+    if (!profile) return
     loadCards()
-  }, [session])
+  }, [profile])
 
   async function loadCards() {
     setLoading(true)
@@ -139,8 +121,7 @@ export default function App() {
     setModalCopies(copies)
   }, [allCopies])
 
-  if (authLoading) return null
-  if (!session) return <Login onLogin={() => {}} />
+  if (!profile) return <Login onLogin={setProfile} />
 
   return (
     <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
@@ -185,7 +166,7 @@ export default function App() {
           </button>
 
           <button
-            onClick={() => supabase.auth.signOut()}
+            onClick={signOut}
             style={{
               padding: '0.35rem 0.75rem',
               background: 'transparent', border: '1px solid var(--border)',
