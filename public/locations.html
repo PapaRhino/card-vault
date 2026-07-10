@@ -107,6 +107,7 @@
     .locRow:last-child { border-bottom: none; }
 
     .locName { flex: 1; font-weight: 600; }
+    .locName:hover { color: var(--accent); }
 
     .locStatus {
         font-size: 11px;
@@ -205,7 +206,7 @@
 
 <script>
     const SUPABASE_URL = "https://upfxsboakluohkuoagie.supabase.co";
-    const SUPABASE_ANON_KEY = "sb_publishable_hmRzJXH_Be9TbdalcPO9fQ_xOrcOUhn";
+    const SUPABASE_ANON_KEY = "PASTE_YOUR_ANON_PUBLIC_KEY_HERE";
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     async function loadLocations() {
@@ -229,7 +230,7 @@
 
         listEl.innerHTML = data.map(loc => `
             <div class="locRow">
-                <span class="locName">${loc.name}</span>
+                <a class="locName" href="/?location=${encodeURIComponent(loc.name)}" style="color:var(--text); text-decoration:none;">${loc.name} →</a>
                 <span class="locStatus">${loc.status}</span>
                 <label class="quickLabel">
                     <input type="checkbox" class="quickToggle" data-id="${loc.id}" ${loc.is_quick ? "checked" : ""} />
