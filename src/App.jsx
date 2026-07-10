@@ -171,6 +171,20 @@ export default function App() {
             </a>
           )}
 
+          {isAdmin && (
+            <a
+              href="/locations.html"
+              style={{
+                padding: '0.35rem 0.75rem',
+                background: 'transparent', color: 'var(--text-dim)',
+                border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+                fontSize: '0.75rem', textDecoration: 'none',
+              }}
+            >
+              Locations
+            </a>
+          )}
+
           <button
             onClick={loadCards}
             disabled={loading}
