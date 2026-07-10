@@ -80,20 +80,7 @@ export default function CardModal({ card, copies, onClose }) {
           </div>
         </div>
 
-        {/* Location */}
-        <div style={{
-          background: 'var(--surface2)', borderRadius: 'var(--radius)',
-          padding: '0.75rem 1rem', marginBottom: '1rem',
-          border: '1px solid var(--border)',
-        }}>
-          <p style={{ fontSize: '0.7rem', color: 'var(--text-dim)', fontWeight: 700,
-            letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
-            Location
-          </p>
-          <p style={{ fontFamily: 'var(--mono)', fontSize: '0.85rem', color: 'var(--accent)' }}>
-            {card.box_location ?? 'Unknown'}
-          </p>
-        </div>
+       
 
         {/* Copies */}
         <div>
