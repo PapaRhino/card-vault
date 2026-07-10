@@ -276,14 +276,15 @@
 <header>
     <span class="logo">🃏</span>
     <h1>TCG Archive — Add Cards</h1>
-    <a class="backLink" href="/">← Browse Collection</a>
+    <nav style="margin-left:auto; display:flex; gap:0.5rem;">
+        <a class="backLink" href="/">← Browse Collection</a>
+        <a class="backLink" href="/locations.html">Locations</a>
+    </nav>
 </header>
 
 <div class="pageBody">
 
 <h1>TCGdex Number Scanner</h1>
-
-<div id="locationManager" class="modalSection" style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:12px; margin-bottom:16px;"></div>
 
 <div class="search-bar">
     <input id="searchInput" placeholder="Type number (e.g. 082) or a name" />
@@ -317,7 +318,6 @@ async function loadLocations() {
         .select("name, status, is_quick")
         .order("name");
     if (!error) ALL_LOCATIONS = data || [];
-    renderLocationManager();
 }
 
 // Saves a location if it doesn't already exist (used whenever a card is
@@ -638,54 +638,6 @@ function closeModal() {
 window.addEventListener("keydown", e => {
     if (e.key === "Escape") closeModal();
 });
-
-function renderLocationManager() {
-    const box = document.getElementById("locationManager");
-
-    const rows = ALL_LOCATIONS.map(loc => `
-        <div style="display:flex; align-items:center; gap:8px; padding:4px 0; border-bottom:1px solid var(--border);">
-            <span style="flex:1;">${loc.name}</span>
-            <span class="meta" style="text-transform:capitalize;">${loc.status}</span>
-            <label style="font-size:11px; color:var(--text-dim); display:flex; align-items:center; gap:4px;">
-                <input type="checkbox" class="quickToggle" data-name="${loc.name}" ${loc.is_quick ? "checked" : ""} />
-                quick add
-            </label>
-        </div>
-    `).join("") || `<div class="subtle">No locations yet — add your first one below.</div>`;
-
-    box.innerHTML = `
-        <div class="sectionTitle">Locations (${ALL_LOCATIONS.length})</div>
-        <div style="max-height:160px; overflow:auto; margin-bottom:10px;">${rows}</div>
-        <div style="display:flex; gap:6px;">
-            <input id="newLocName" placeholder="New location name..." style="flex:1;" />
-            <select id="newLocStatus">
-                <option value="binder">Binder</option>
-                <option value="deck">Deck</option>
-                <option value="box">Box</option>
-            </select>
-            <button id="newLocBtn">+ Add Location</button>
-        </div>
-    `;
-
-    document.getElementById("newLocBtn").onclick = async () => {
-        const name = document.getElementById("newLocName").value.trim();
-        const status = document.getElementById("newLocStatus").value;
-        if (!name) return;
-        await ensureLocationExists(name, status);
-        document.getElementById("newLocName").value = "";
-        loadLocations();
-    };
-
-    document.querySelectorAll(".quickToggle").forEach(cb => {
-        cb.onchange = async () => {
-            await supabaseClient
-                .from("locations")
-                .update({ is_quick: cb.checked })
-                .eq("name", cb.dataset.name);
-            loadLocations();
-        };
-    });
-}
 
 loadLocations();
 
