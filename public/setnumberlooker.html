@@ -283,6 +283,8 @@
 
 <h1>TCGdex Number Scanner</h1>
 
+<div id="locationManager" class="modalSection" style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:12px; margin-bottom:16px;"></div>
+
 <div class="search-bar">
     <input id="searchInput" placeholder="Type number (e.g. 082) or a name" />
     <button onclick="searchCards()">Search</button>
@@ -302,19 +304,30 @@
 // it only has the read-only access granted by RLS.
 // ─────────────────────────────
 const SUPABASE_URL = "https://upfxsboakluohkuoagie.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_hmRzJXH_Be9TbdalcPO9fQ_xOrcOUhn";
+const SUPABASE_ANON_KEY = "PASTE_YOUR_ANON_PUBLIC_KEY_HERE";
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// ─────────────────────────────
-// Edit these to whatever your most common binder/deck locations are.
-// status must be one of: 'box', 'binder', 'deck' (matches the copy_status enum)
-// ─────────────────────────────
-const QUICK_LOCATIONS = [
-    { name: "Main Binder", status: "binder" },
-    { name: "Trade Binder", status: "binder" },
-    { name: "Kid Binder",  status: "binder" },
-];
+// Loaded from the `locations` table — see loadLocations()
+let ALL_LOCATIONS = [];
+
+async function loadLocations() {
+    const { data, error } = await supabaseClient
+        .from("locations")
+        .select("name, status, is_quick")
+        .order("name");
+    if (!error) ALL_LOCATIONS = data || [];
+    renderLocationManager();
+}
+
+// Saves a location if it doesn't already exist (used whenever a card is
+// added to a location that isn't in the table yet, so it's remembered
+// for next time — plus the standalone "add empty location" form below).
+async function ensureLocationExists(name, status) {
+    await supabaseClient
+        .from("locations")
+        .upsert({ name, status }, { onConflict: "name", ignoreDuplicates: true });
+}
 
 const TRAINER_TYPE_CODES = { Supporter: "Su", Item: "It", Tool: "To", Stadium: "St" };
 
@@ -376,7 +389,7 @@ async function findOrCreateCard(card) {
             trainer_subtype: card.trainerType || null,
             pokedex_number: (card.dexId && card.dexId[0]) || null,
             artist: card.illustrator || null,
-            image_url: card.image + "/high.webp" || null,
+            image_url: card.image ? card.image + "/high.webp" : null,
             needs_review: false,
             // new columns for the current system
             tcgdex_id: card.id,
@@ -560,14 +573,21 @@ async function showCard(cardId) {
     const bulkLocation = computeBulkLocation(card);
     const statusId = "addStatus";
 
+    const quickLocs = ALL_LOCATIONS.filter(l => l.is_quick);
+    const otherLocs = ALL_LOCATIONS.filter(l => !l.is_quick);
+
     addSection.innerHTML = `
         <div class="sectionTitle">Add to Collection</div>
         <button id="bulkAddBtn" style="margin-bottom:8px;">+ Add to Bulk (${bulkLocation})</button>
-        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
-            ${QUICK_LOCATIONS.map(loc => `<button class="quickLocBtn" data-loc="${loc.name}" data-status="${loc.status}">+ ${loc.name}</button>`).join("")}
+        <div id="quickLocRow" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
+            ${quickLocs.map(loc => `<button class="quickLocBtn" data-loc="${loc.name}" data-status="${loc.status}">+ ${loc.name}</button>`).join("")}
+            ${otherLocs.length ? `<button id="seeMoreLocBtn">See more (${otherLocs.length})…</button>` : ""}
+        </div>
+        <div id="moreLocRow" style="display:none; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
+            ${otherLocs.map(loc => `<button class="quickLocBtn" data-loc="${loc.name}" data-status="${loc.status}">+ ${loc.name}</button>`).join("")}
         </div>
         <div style="display:flex; gap:6px;">
-            <input id="customLocInput" placeholder="Other location..." style="flex:1;" />
+            <input id="customLocInput" placeholder="New location..." style="flex:1;" />
             <select id="customStatusSelect">
                 <option value="binder">Binder</option>
                 <option value="deck">Deck</option>
@@ -577,6 +597,14 @@ async function showCard(cardId) {
         </div>
         <div id="${statusId}" style="margin-top:8px; font-size:13px;"></div>
     `;
+
+    const seeMoreBtn = document.getElementById("seeMoreLocBtn");
+    if (seeMoreBtn) {
+        seeMoreBtn.onclick = () => {
+            document.getElementById("moreLocRow").style.display = "flex";
+            seeMoreBtn.style.display = "none";
+        };
+    }
 
     const statusEl = document.getElementById(statusId);
 
@@ -597,7 +625,9 @@ async function showCard(cardId) {
         const status = document.getElementById("customStatusSelect").value;
         if (!loc) return;
         const cardId = await findOrCreateCard(card);
+        await ensureLocationExists(loc, status);
         addCopyToLocation(cardId, loc, status, statusEl);
+        loadLocations();
     };
 }
 
@@ -608,6 +638,56 @@ function closeModal() {
 window.addEventListener("keydown", e => {
     if (e.key === "Escape") closeModal();
 });
+
+function renderLocationManager() {
+    const box = document.getElementById("locationManager");
+
+    const rows = ALL_LOCATIONS.map(loc => `
+        <div style="display:flex; align-items:center; gap:8px; padding:4px 0; border-bottom:1px solid var(--border);">
+            <span style="flex:1;">${loc.name}</span>
+            <span class="meta" style="text-transform:capitalize;">${loc.status}</span>
+            <label style="font-size:11px; color:var(--text-dim); display:flex; align-items:center; gap:4px;">
+                <input type="checkbox" class="quickToggle" data-name="${loc.name}" ${loc.is_quick ? "checked" : ""} />
+                quick add
+            </label>
+        </div>
+    `).join("") || `<div class="subtle">No locations yet — add your first one below.</div>`;
+
+    box.innerHTML = `
+        <div class="sectionTitle">Locations (${ALL_LOCATIONS.length})</div>
+        <div style="max-height:160px; overflow:auto; margin-bottom:10px;">${rows}</div>
+        <div style="display:flex; gap:6px;">
+            <input id="newLocName" placeholder="New location name..." style="flex:1;" />
+            <select id="newLocStatus">
+                <option value="binder">Binder</option>
+                <option value="deck">Deck</option>
+                <option value="box">Box</option>
+            </select>
+            <button id="newLocBtn">+ Add Location</button>
+        </div>
+    `;
+
+    document.getElementById("newLocBtn").onclick = async () => {
+        const name = document.getElementById("newLocName").value.trim();
+        const status = document.getElementById("newLocStatus").value;
+        if (!name) return;
+        await ensureLocationExists(name, status);
+        document.getElementById("newLocName").value = "";
+        loadLocations();
+    };
+
+    document.querySelectorAll(".quickToggle").forEach(cb => {
+        cb.onchange = async () => {
+            await supabaseClient
+                .from("locations")
+                .update({ is_quick: cb.checked })
+                .eq("name", cb.dataset.name);
+            loadLocations();
+        };
+    });
+}
+
+loadLocations();
 
 async function searchCards() {
     const query = document.getElementById("searchInput").value.trim();
