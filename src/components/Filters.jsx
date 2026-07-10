@@ -1,10 +1,23 @@
+import { useState, useEffect } from 'react'
+import { supabase } from '../supabase'
+
 const GAMES   = ['Pokemon', 'MTG', 'YuGiOh', 'Lorcana']
 const TYPES   = ['Fire','Water','Grass','Lightning','Psychic','Fighting',
                  'Darkness','Metal','Dragon','Fairy','Colorless','Trainer','Energy']
-const SUBTYPES = ['Supporter','Item','Stadium','Special Energy']
+const SUBTYPES = ['Supporter','Item','Stadium','Tool','Special Energy']
 const STATUSES = ['box','deck','binder']
 
 export default function Filters({ filters, onChange, totals }) {
+  const [locations, setLocations] = useState([])
+
+  useEffect(() => {
+    supabase
+      .from('locations')
+      .select('name, status')
+      .order('name')
+      .then(({ data }) => setLocations(data ?? []))
+  }, [])
+
   function set(key, val) {
     onChange({ ...filters, [key]: val })
   }
@@ -61,13 +74,19 @@ export default function Filters({ filters, onChange, totals }) {
           value={filters.status}
           onChange={v => set('status', v)}
           options={STATUSES}
+          placeholder="Storage type"
+        />
+        <Select
+          value={filters.location}
+          onChange={v => set('location', v)}
+          options={locations.map(l => l.name)}
           placeholder="Any location"
         />
 
         {/* Clear */}
-        {(filters.search || filters.game || filters.type || filters.subtype || filters.status) && (
+        {(filters.search || filters.game || filters.type || filters.subtype || filters.status || filters.location) && (
           <button
-            onClick={() => onChange({ search: '', game: '', type: '', subtype: '', status: '' })}
+            onClick={() => onChange({ search: '', game: '', type: '', subtype: '', status: '', location: '' })}
             style={{
               padding: '0.5rem 0.75rem', fontSize: '0.8rem',
               background: 'transparent', border: '1px solid var(--border)',
