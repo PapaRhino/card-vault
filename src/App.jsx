@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from './supabase'
 import Login from './components/Login'
@@ -206,6 +205,20 @@ export default function App() {
               }}
             >
               Locations
+            </a>
+          )}
+
+          {isAdmin && (
+            <a
+              href="/import.html"
+              style={{
+                padding: '0.35rem 0.75rem',
+                background: 'transparent', color: 'var(--text-dim)',
+                border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+                fontSize: '0.75rem', textDecoration: 'none',
+              }}
+            >
+              Bulk Import
             </a>
           )}
 
