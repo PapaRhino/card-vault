@@ -17,12 +17,35 @@ export default function App() {
   const [allCopies,   setAllCopies]   = useState([])
   const [loading,     setLoading]     = useState(false)
   const [error,       setError]       = useState(null)
-  const [filters,     setFilters]     = useState(DEFAULT_FILTERS)
+  const [filters,     setFilters]     = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    const loc = params.get('location')
+    return loc ? { ...DEFAULT_FILTERS, location: loc } : DEFAULT_FILTERS
+  })
   const [page,        setPage]        = useState(1)
   const [selected,    setSelected]    = useState(null)
   const [modalCopies, setModalCopies] = useState([])
 
   const isAdmin = profile?.role === 'admin'
+
+  async function moveCopy(copyId, locationName, status) {
+    const { error } = await supabase
+      .from('copies')
+      .update({ location_name: locationName, status })
+      .eq('id', copyId)
+
+    if (error) {
+      alert('Failed to move card — see console')
+      console.error(error)
+      return
+    }
+
+    // Update both the modal's copy list and the main copies list so
+    // filters/counts reflect the move immediately, no full reload needed.
+    const patch = cp => cp.id === copyId ? { ...cp, location_name: locationName, status } : cp
+    setModalCopies(prev => prev.map(patch))
+    setAllCopies(prev => prev.map(patch))
+  }
 
   function signOut() {
     sessionStorage.removeItem('tcg_profile')
@@ -267,6 +290,8 @@ export default function App() {
         <CardModal
           card={selected}
           copies={modalCopies}
+          isAdmin={isAdmin}
+          onMove={moveCopy}
           onClose={() => setSelected(null)}
         />
       )}
