@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TCG Archive — Locations</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+<style>
+    :root {
+        --bg:        #0e0f11;
+        --surface:   #16181c;
+        --surface2:  #1e2026;
+        --border:    #2a2d35;
+        --accent:    #c8a84b;
+        --accent2:   #7c5cbf;
+        --text:      #e8e9ec;
+        --text-dim:  #8b8f9a;
+        --radius:    10px;
+        --font:      'Space Grotesk', sans-serif;
+        --mono:      'Space Mono', monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+        font-family: var(--font);
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100dvh;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    button, input, select { font-family: var(--font); }
+
+    header {
+        border-bottom: 1px solid var(--border);
+        padding: 0.75rem 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: rgba(14,15,17,0.92);
+        backdrop-filter: blur(8px);
+    }
+
+    header .logo { font-size: 1.5rem; }
+
+    header h1 {
+        font-family: var(--mono);
+        font-size: 1rem;
+        color: var(--accent);
+        letter-spacing: 0.05em;
+        margin: 0;
+    }
+
+    header nav {
+        margin-left: auto;
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    header nav a {
+        padding: 0.35rem 0.75rem;
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        color: var(--text-dim);
+        font-size: 0.75rem;
+        text-decoration: none;
+    }
+
+    .pageBody {
+        padding: 1.25rem;
+        max-width: 700px;
+        margin: 0 auto;
+    }
+
+    h1.pageTitle {
+        font-size: 18px;
+        margin-bottom: 16px;
+    }
+
+    .panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
+    }
+
+    .locRow {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .locRow:last-child { border-bottom: none; }
+
+    .locName { flex: 1; font-weight: 600; }
+
+    .locStatus {
+        font-size: 11px;
+        color: var(--text-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 2px 8px;
+    }
+
+    .quickLabel {
+        font-size: 11px;
+        color: var(--text-dim);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        cursor: pointer;
+    }
+
+    .deleteBtn {
+        background: transparent;
+        border: none;
+        color: var(--text-dim);
+        cursor: pointer;
+        font-size: 16px;
+        padding: 2px 6px;
+    }
+    .deleteBtn:hover { color: #e05c5c; }
+
+    input, select {
+        padding: 10px;
+        font-size: 14px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        color: var(--text);
+    }
+
+    button {
+        padding: 10px 14px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        color: var(--text);
+    }
+    button:hover { border-color: var(--accent); }
+
+    #newLocBtn {
+        background: var(--accent);
+        color: #0e0f11;
+        border: none;
+    }
+
+    .newLocRow {
+        display: flex;
+        gap: 8px;
+        margin-top: 16px;
+    }
+
+    .subtle { font-size: 12px; color: var(--text-dim); }
+</style>
+</head>
+
+<body>
+
+<header>
+    <span class="logo">🃏</span>
+    <h1>TCG Archive — Locations</h1>
+    <nav>
+        <a href="/">← Browse Collection</a>
+        <a href="/setnumberlooker.html">Add Cards</a>
+    </nav>
+</header>
+
+<div class="pageBody">
+    <h1 class="pageTitle">Manage Locations</h1>
+    <div class="panel">
+        <div id="locList"></div>
+
+        <div class="newLocRow">
+            <input id="newLocName" placeholder="New location name..." style="flex:1;" />
+            <select id="newLocStatus">
+                <option value="binder">Binder</option>
+                <option value="deck">Deck</option>
+                <option value="box">Box</option>
+            </select>
+            <button id="newLocBtn">+ Add</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const SUPABASE_URL = "https://upfxsboakluohkuoagie.supabase.co";
+    const SUPABASE_ANON_KEY = "PASTE_YOUR_ANON_PUBLIC_KEY_HERE";
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    async function loadLocations() {
+        const { data, error } = await supabaseClient
+            .from("locations")
+            .select("id, name, status, is_quick")
+            .order("name");
+
+        const listEl = document.getElementById("locList");
+
+        if (error) {
+            listEl.innerHTML = `<p class="subtle">Error loading locations — see console</p>`;
+            console.error(error);
+            return;
+        }
+
+        if (!data || data.length === 0) {
+            listEl.innerHTML = `<p class="subtle">No locations yet — add your first one below.</p>`;
+            return;
+        }
+
+        listEl.innerHTML = data.map(loc => `
+            <div class="locRow">
+                <span class="locName">${loc.name}</span>
+                <span class="locStatus">${loc.status}</span>
+                <label class="quickLabel">
+                    <input type="checkbox" class="quickToggle" data-id="${loc.id}" ${loc.is_quick ? "checked" : ""} />
+                    quick add
+                </label>
+                <button class="deleteBtn" data-id="${loc.id}" data-name="${loc.name}" title="Delete location">&times;</button>
+            </div>
+        `).join("");
+
+        document.querySelectorAll(".quickToggle").forEach(cb => {
+            cb.onchange = async () => {
+                await supabaseClient
+                    .from("locations")
+                    .update({ is_quick: cb.checked })
+                    .eq("id", cb.dataset.id);
+            };
+        });
+
+        document.querySelectorAll(".deleteBtn").forEach(btn => {
+            btn.onclick = async () => {
+                if (!confirm(`Delete location "${btn.dataset.name}"? Cards already stored there keep their location text — this only removes it from the picker lists.`)) return;
+                await supabaseClient.from("locations").delete().eq("id", btn.dataset.id);
+                loadLocations();
+            };
+        });
+    }
+
+    document.getElementById("newLocBtn").onclick = async () => {
+        const name = document.getElementById("newLocName").value.trim();
+        const status = document.getElementById("newLocStatus").value;
+        if (!name) return;
+
+        const { error } = await supabaseClient
+            .from("locations")
+            .upsert({ name, status }, { onConflict: "name", ignoreDuplicates: true });
+
+        if (error) {
+            alert("Failed to add location — see console");
+            console.error(error);
+            return;
+        }
+
+        document.getElementById("newLocName").value = "";
+        loadLocations();
+    };
+
+    loadLocations();
+</script>
+
+</body>
+</html>
