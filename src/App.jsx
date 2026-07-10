@@ -5,7 +5,7 @@ import Filters from './components/Filters'
 import CardGrid from './components/CardGrid'
 import CardModal from './components/CardModal'
 
-const DEFAULT_FILTERS = { search: '', game: '', type: '', subtype: '', status: '' }
+const DEFAULT_FILTERS = { search: '', game: '', type: '', subtype: '', status: '', location: '' }
 const PAGE_SIZE = 60
 
 export default function App() {
@@ -81,6 +81,7 @@ export default function App() {
     const type = filters.type
     const sub  = filters.subtype
     const stat = filters.status
+    const loc  = filters.location
 
     return cards.filter(c => {
       if (game && c.game !== game) return false
@@ -89,6 +90,10 @@ export default function App() {
       if (stat) {
         const copies = allCopies.filter(cp => cp.card_id === c.id)
         if (!copies.some(cp => cp.status === stat)) return false
+      }
+      if (loc) {
+        const copies = allCopies.filter(cp => cp.card_id === c.id)
+        if (!copies.some(cp => cp.location_name === loc)) return false
       }
       if (q) {
         const haystack = [
@@ -254,4 +259,3 @@ export default function App() {
     </div>
   )
 }
-//adding a comment just so i can resave and redeploy this page
