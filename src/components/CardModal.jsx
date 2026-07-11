@@ -2,6 +2,26 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import TypeBadge from './TypeBadge'
 
+const TRAINER_TYPE_CODES = { Supporter: 'Su', Item: 'It', Tool: 'To', Stadium: 'St' }
+
+function computeBulkAddress(card) {
+  const base = card.base_name || card.card_name || ''
+  const letter = (base.trim()[0] || '?').toUpperCase()
+
+  if (card.game === 'Pokemon') {
+    let cat = 'P'
+    if (card.category === 'Trainer') {
+      cat = TRAINER_TYPE_CODES[card.trainer_subtype] || card.trainer_subtype || 'Tr'
+    } else if (card.category === 'Energy') {
+      cat = 'E'
+    }
+    const ruleBoxSuffix = card.rule_box ? '.2' : ''
+    return `PTCG.${cat}.${letter}${ruleBoxSuffix}`
+  }
+
+  return `${card.game}.${letter}`
+}
+
 export default function CardModal({ card, copies, isAdmin, onMove, onClose }) {
   const [locations, setLocations] = useState([])
 
@@ -102,13 +122,13 @@ export default function CardModal({ card, copies, isAdmin, onMove, onClose }) {
           </p>
 
           {boxCopies.length > 0 && (
-            <CopyGroup label="📦 In Box" copies={boxCopies} isAdmin={isAdmin} locations={locations} onMove={onMove} />
+            <CopyGroup label="📦 In Box" copies={boxCopies} isAdmin={isAdmin} locations={locations} onMove={onMove} card={card} />
           )}
           {deckCopies.length > 0 && (
-            <CopyGroup label="🎯 In Deck" copies={deckCopies} isAdmin={isAdmin} locations={locations} onMove={onMove} />
+            <CopyGroup label="🎯 In Deck" copies={deckCopies} isAdmin={isAdmin} locations={locations} onMove={onMove} card={card} />
           )}
           {binderCopies.length > 0 && (
-            <CopyGroup label="📒 In Binder" copies={binderCopies} isAdmin={isAdmin} locations={locations} onMove={onMove} />
+            <CopyGroup label="📒 In Binder" copies={binderCopies} isAdmin={isAdmin} locations={locations} onMove={onMove} card={card} />
           )}
         </div>
 
@@ -128,7 +148,7 @@ export default function CardModal({ card, copies, isAdmin, onMove, onClose }) {
   )
 }
 
-function CopyGroup({ label, copies, isAdmin, locations, onMove }) {
+function CopyGroup({ label, copies, isAdmin, locations, onMove, card }) {
   const [editingId, setEditingId] = useState(null)
 
   return (
@@ -142,7 +162,11 @@ function CopyGroup({ label, copies, isAdmin, locations, onMove }) {
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
             <span>{c.condition ?? 'Unknown condition'}</span>
-            {c.location_name && <span style={{ color: 'var(--accent)' }}>{c.location_name}</span>}
+            {c.location_name && (
+              <span style={{ color: 'var(--accent)' }}>
+                {c.location_name}{c.bulk_address ? ` — ${c.bulk_address}` : ''}
+              </span>
+            )}
             {c.grade && c.grade !== 'Ungraded' && <span>{c.grade}</span>}
             {isAdmin && (
               <button
@@ -161,10 +185,11 @@ function CopyGroup({ label, copies, isAdmin, locations, onMove }) {
           {isAdmin && editingId === c.id && (
             <MoveForm
               copy={c}
+              card={card}
               locations={locations}
               onCancel={() => setEditingId(null)}
-              onMove={(name, status) => {
-                onMove(c.id, name, status)
+              onMove={(name, status, bulkAddress) => {
+                onMove(c.id, name, status, bulkAddress)
                 setEditingId(null)
               }}
             />
@@ -175,49 +200,58 @@ function CopyGroup({ label, copies, isAdmin, locations, onMove }) {
   )
 }
 
-function MoveForm({ copy, locations, onMove, onCancel }) {
+function MoveForm({ copy, card, locations, onMove, onCancel }) {
   const [choice, setChoice] = useState(copy.location_name ?? '')
 
   function handleMove() {
     const match = locations.find(l => l.name === choice)
     if (!match) return
-    onMove(match.name, match.status)
+
+    const bulkAddress = match.name === 'BULK' ? computeBulkAddress(card) : null
+    onMove(match.name, match.status, bulkAddress)
   }
 
   return (
-    <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-      <select
-        value={choice}
-        onChange={e => setChoice(e.target.value)}
-        style={{
-          flex: 1, padding: '4px 8px', fontSize: '0.75rem',
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 6, color: 'var(--text)',
-        }}
-      >
-        <option value="" disabled>Choose a location…</option>
-        {locations.map(l => (
-          <option key={l.name} value={l.name}>{l.name} ({l.status})</option>
-        ))}
-      </select>
-      <button
-        onClick={handleMove}
-        style={{
-          background: 'var(--accent)', color: '#0e0f11', border: 'none',
-          borderRadius: 6, fontSize: '0.75rem', padding: '4px 10px', cursor: 'pointer',
-        }}
-      >
-        Save
-      </button>
-      <button
-        onClick={onCancel}
-        style={{
-          background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-dim)',
-          borderRadius: 6, fontSize: '0.75rem', padding: '4px 10px', cursor: 'pointer',
-        }}
-      >
-        Cancel
-      </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+      {choice === 'BULK' && (
+        <div className="subtle" style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
+          Will file under: {computeBulkAddress(card)}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 6 }}>
+        <select
+          value={choice}
+          onChange={e => setChoice(e.target.value)}
+          style={{
+            flex: 1, padding: '4px 8px', fontSize: '0.75rem',
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 6, color: 'var(--text)',
+          }}
+        >
+          <option value="" disabled>Choose a location…</option>
+          {locations.map(l => (
+            <option key={l.name} value={l.name}>{l.name} ({l.status})</option>
+          ))}
+        </select>
+        <button
+          onClick={handleMove}
+          style={{
+            background: 'var(--accent)', color: '#0e0f11', border: 'none',
+            borderRadius: 6, fontSize: '0.75rem', padding: '4px 10px', cursor: 'pointer',
+          }}
+        >
+          Save
+        </button>
+        <button
+          onClick={onCancel}
+          style={{
+            background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-dim)',
+            borderRadius: 6, fontSize: '0.75rem', padding: '4px 10px', cursor: 'pointer',
+          }}
+        >
+          Cancel
+        </button>
+      </div>
     </div>
   )
 }
