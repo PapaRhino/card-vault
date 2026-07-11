@@ -255,17 +255,31 @@ async function lookupYGO(row) {
 }
 
 async function lookupLorcana(row) {
-    const name = row["Product Name"];
-    const res = await fetch(`https://api.lorcast.com/v0/cards/search?q=${encodeURIComponent('"' + name + '"')}&unique=prints`);
+    const fullName = row["Product Name"];
+    // Lorcast stores name and subtitle as separate fields (e.g. name: "Goons",
+    // version: "Maleficent's Underlings"), not one combined "Name - Version" string.
+    const [baseName, version] = fullName.split(" - ").map(s => s.trim());
+
+    const res = await fetch(`https://api.lorcast.com/v0/cards/search?q=${encodeURIComponent(baseName)}&unique=prints`);
     if (!res.ok) return null;
     const data = await res.json();
     if (!data.results || !data.results.length) return null;
 
+    let candidates = data.results.filter(c => (c.name || "").toLowerCase() === baseName.toLowerCase());
+    if (!candidates.length) candidates = data.results;
+
+    if (version) {
+        const versionMatches = candidates.filter(c => (c.version || "").toLowerCase() === version.toLowerCase());
+        if (versionMatches.length) candidates = versionMatches;
+    }
+
     const setName = (row["Set"] || "").toLowerCase();
-    const match = data.results.find(c => (c.set?.name || "").toLowerCase() === setName) || data.results[0];
+    const match = candidates.find(c => (c.set?.name || "").toLowerCase() === setName) || candidates[0];
+
+    const displayName = match.version ? `${match.name} - ${match.version}` : match.name;
 
     return {
-        name: match.name,
+        name: displayName,
         image: match.image_uris?.digital?.normal || null,
         rarity: match.rarity,
         artist: (match.illustrators && match.illustrators[0]) || null,
