@@ -215,8 +215,9 @@ async function runLookup() {
             const letter = (matched.name.trim()[0] || "?").toUpperCase();
             reviewItems.push({
                 row, game: game.code, matched,
-                location: `${game.code}.${letter}`,
+                location: "BULK",
                 status: "box",
+                bulkAddress: `${game.code}.${letter}`,
             });
             statusCell.textContent = "Matched";
             statusCell.className = "statusOk";
@@ -270,6 +271,7 @@ async function renderReview() {
                         <option value="box">Box</option>
                     </select>
                 </div>
+                ${item.bulkAddress ? `<div class="subtle" style="margin-top:2px; margin-bottom:0;">Sub-address: ${item.bulkAddress}</div>` : ""}
             </td>
         </tr>
     `).join("");
@@ -344,7 +346,7 @@ async function runCommit() {
         const statusCell = tr.querySelector("td:last-child");
 
         try {
-            await insertCard(item.game, item.row, item.matched, item.location, item.status);
+            await insertCard(item.game, item.row, item.matched, item.location, item.status, item.bulkAddress);
             statusCell.textContent = "Added";
             statusCell.className = "statusOk";
         } catch (err) {
@@ -446,7 +448,7 @@ async function lookupLorcana(row) {
 // INSERT — mirrors the pattern from the Pokémon add-cards tool:
 // find-or-create the card definition, then insert one copy per Quantity.
 // ─────────────────────────────
-async function insertCard(gameCode, row, matched, location, status) {
+async function insertCard(gameCode, row, matched, location, status, bulkAddress) {
     // Collectr's market price column header includes the export date
     // (e.g. "Market Price (As of 2026-06-16)"), so match by prefix.
     const marketPriceKey = Object.keys(row).find(k => k.startsWith("Market Price"));
@@ -492,6 +494,7 @@ async function insertCard(gameCode, row, matched, location, status) {
         card_id: cardId,
         status: status,
         location_name: location,
+        bulk_address: location === "BULK" ? bulkAddress : null,
         condition: row["Card Condition"] || null,
         grade: row["Grade"] || null,
         cost_paid: parseFloat(row["Average Cost Paid"]) || null,
