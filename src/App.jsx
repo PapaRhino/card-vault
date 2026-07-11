@@ -77,7 +77,7 @@ export default function App() {
 
       const { data: copyData, error: copyErr } = await supabase
         .from('copies')
-        .select('id, card_id, status, location_name, bulk_address, condition, grade')
+        .select('id, card_id, status, location_name, bulk_address, grade')
         .neq('status', 'sold_traded')
 
       if (copyErr) throw copyErr
