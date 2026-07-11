@@ -77,7 +77,8 @@
     .statusPending { color: var(--text-dim); }
     .statusOk { color: #6fbf73; }
     .statusFail { color: #e05c5c; }
-    #logTable { max-height: 420px; overflow: auto; }
+    .reviewThumb { width: 36px; border-radius: 4px; display: block; }
+    #logTable, #reviewTable { max-height: 420px; overflow: auto; }
 </style>
 </head>
 
@@ -100,7 +101,25 @@
     <div class="panel">
         <input type="file" id="csvFile" accept=".csv" />
         <div id="summary" class="summaryRow"></div>
-        <button id="startBtn" disabled>Start Import</button>
+        <button id="lookupBtn" disabled>Look Up Cards</button>
+    </div>
+
+    <div class="panel" id="reviewPanel" style="display:none;">
+        <div class="sectionTitle" style="font-size:13px; font-weight:bold; color:var(--text-dim); margin-bottom:8px;">Review before adding</div>
+        <div style="display:flex; gap:6px; align-items:center; margin-bottom:12px; flex-wrap:wrap;">
+            <span class="subtle" style="margin:0;">Set all to:</span>
+            <select id="bulkLocSelect" style="flex:1; min-width:160px;"></select>
+            <button id="applyBulkBtn">Apply to all</button>
+        </div>
+        <div id="reviewTable" style="max-height:480px; overflow:auto;">
+            <table>
+                <thead>
+                    <tr><th></th><th>Game</th><th>Card</th><th>Set</th><th>Location</th></tr>
+                </thead>
+                <tbody id="reviewBody"></tbody>
+            </table>
+        </div>
+        <button id="commitBtn" style="margin-top:12px;">Add All to Collection</button>
     </div>
 
     <div class="panel" id="logPanel" style="display:none;">
@@ -158,16 +177,20 @@ function renderSummary() {
         .map(([game, n]) => `<div class="summaryChip">${GAME_MAP[game].label}: ${n}</div>`)
         .join("") || `<div class="subtle">No matching MTG/Yu-Gi-Oh/Lorcana rows found.</div>`;
 
-    document.getElementById("startBtn").disabled = parsedRows.length === 0;
+    document.getElementById("lookupBtn").disabled = parsedRows.length === 0;
 }
 
-document.getElementById("startBtn").onclick = runImport;
+document.getElementById("lookupBtn").onclick = runLookup;
 
-async function runImport() {
-    document.getElementById("startBtn").disabled = true;
+let reviewItems = []; // { row, game, matched, location, status }
+
+async function runLookup() {
+    document.getElementById("lookupBtn").disabled = true;
     document.getElementById("logPanel").style.display = "block";
+    document.getElementById("reviewPanel").style.display = "none";
     const logBody = document.getElementById("logBody");
     logBody.innerHTML = "";
+    reviewItems = [];
 
     for (const row of parsedRows) {
         const game = GAME_MAP[row["Category"]];
@@ -189,8 +212,13 @@ async function runImport() {
                 continue;
             }
 
-            await insertCard(game.code, row, matched);
-            statusCell.textContent = "Added";
+            const letter = (matched.name.trim()[0] || "?").toUpperCase();
+            reviewItems.push({
+                row, game: game.code, matched,
+                location: `${game.code}.${letter}`,
+                status: "box",
+            });
+            statusCell.textContent = "Matched";
             statusCell.className = "statusOk";
         } catch (err) {
             console.error(err);
@@ -199,6 +227,136 @@ async function runImport() {
         }
 
         // Be polite to the free APIs — small delay between lookups
+        await new Promise(r => setTimeout(r, 120));
+    }
+
+    document.getElementById("lookupBtn").disabled = false;
+    await renderReview();
+}
+
+async function renderReview() {
+    if (!reviewItems.length) return;
+
+    const { data: existingLocations } = await supabaseClient
+        .from("locations")
+        .select("name, status")
+        .order("name");
+    const knownLocations = existingLocations || [];
+
+    const locOptionsHtml = (selectedName) => `
+        ${knownLocations.map(l => `<option value="${l.name}" data-status="${l.status}" ${l.name === selectedName ? "selected" : ""}>${l.name} (${l.status})</option>`).join("")}
+        <option value="__custom__" ${!knownLocations.some(l => l.name === selectedName) ? "selected" : ""}>+ New location…</option>
+    `;
+
+    // Bulk "set all to" dropdown
+    document.getElementById("bulkLocSelect").innerHTML = locOptionsHtml("");
+
+    const reviewBody = document.getElementById("reviewBody");
+    reviewBody.innerHTML = reviewItems.map((item, i) => `
+        <tr data-index="${i}">
+            <td>${item.matched.image ? `<img class="reviewThumb" src="${item.matched.image}" />` : ""}</td>
+            <td>${item.game}</td>
+            <td>${item.matched.name}</td>
+            <td>${item.row["Set"]}</td>
+            <td>
+                <select class="rowLocSelect" data-index="${i}" style="width:100%;">
+                    ${locOptionsHtml(item.location)}
+                </select>
+                <div class="customLocRow" data-index="${i}" style="display:none; gap:4px; margin-top:4px;">
+                    <input type="text" class="customLocName" placeholder="Location name" style="flex:1; font-size:12px; padding:4px 6px;" />
+                    <select class="customLocStatus" style="font-size:12px; padding:4px 6px;">
+                        <option value="binder">Binder</option>
+                        <option value="deck">Deck</option>
+                        <option value="box">Box</option>
+                    </select>
+                </div>
+            </td>
+        </tr>
+    `).join("");
+
+    document.querySelectorAll(".rowLocSelect").forEach(sel => {
+        sel.onchange = () => handleRowLocChange(sel);
+    });
+
+    document.getElementById("reviewPanel").style.display = "block";
+}
+
+function handleRowLocChange(sel) {
+    const i = parseInt(sel.dataset.index, 10);
+    const customRow = document.querySelector(`.customLocRow[data-index="${i}"]`);
+
+    if (sel.value === "__custom__") {
+        customRow.style.display = "flex";
+    } else {
+        customRow.style.display = "none";
+        const opt = sel.selectedOptions[0];
+        reviewItems[i].location = sel.value;
+        reviewItems[i].status = opt.dataset.status;
+    }
+}
+
+document.getElementById("applyBulkBtn").onclick = () => {
+    const bulkSel = document.getElementById("bulkLocSelect");
+    if (bulkSel.value === "__custom__") {
+        alert("Pick an existing location from the dropdown to apply to all, or set each row individually.");
+        return;
+    }
+    const opt = bulkSel.selectedOptions[0];
+    document.querySelectorAll(".rowLocSelect").forEach(sel => {
+        sel.value = bulkSel.value;
+        const i = parseInt(sel.dataset.index, 10);
+        document.querySelector(`.customLocRow[data-index="${i}"]`).style.display = "none";
+        reviewItems[i].location = bulkSel.value;
+        reviewItems[i].status = opt.dataset.status;
+    });
+};
+
+document.getElementById("commitBtn").onclick = runCommit;
+
+async function runCommit() {
+    document.getElementById("commitBtn").disabled = true;
+
+    // Pull any custom location values out of their inline inputs first
+    document.querySelectorAll(".customLocRow").forEach(row => {
+        if (row.style.display === "none") return;
+        const i = parseInt(row.dataset.index, 10);
+        const name = row.querySelector(".customLocName").value.trim();
+        const status = row.querySelector(".customLocStatus").value;
+        if (name) {
+            reviewItems[i].location = name;
+            reviewItems[i].status = status;
+        }
+    });
+
+    document.getElementById("logPanel").style.display = "block";
+    const logBody = document.getElementById("logBody");
+    logBody.innerHTML = "";
+
+    for (const item of reviewItems) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${item.game}</td>
+            <td>${item.matched.name}</td>
+            <td>${item.row["Set"]}</td>
+            <td class="statusPending">Adding…</td>
+        `;
+        logBody.appendChild(tr);
+        const statusCell = tr.querySelector("td:last-child");
+
+        try {
+            await insertCard(item.game, item.row, item.matched, item.location, item.status);
+            statusCell.textContent = "Added";
+            statusCell.className = "statusOk";
+        } catch (err) {
+            console.error(err);
+            statusCell.textContent = "Error — see console";
+            statusCell.className = "statusFail";
+        }
+    }
+
+    document.getElementById("reviewPanel").style.display = "none";
+    document.getElementById("commitBtn").disabled = false;
+}
         await new Promise(r => setTimeout(r, 120));
     }
 }
@@ -291,7 +449,7 @@ async function lookupLorcana(row) {
 // INSERT — mirrors the pattern from the Pokémon add-cards tool:
 // find-or-create the card definition, then insert one copy per Quantity.
 // ─────────────────────────────
-async function insertCard(gameCode, row, matched) {
+async function insertCard(gameCode, row, matched, location, status) {
     // Collectr's market price column header includes the export date
     // (e.g. "Market Price (As of 2026-06-16)"), so match by prefix.
     const marketPriceKey = Object.keys(row).find(k => k.startsWith("Market Price"));
@@ -330,14 +488,12 @@ async function insertCard(gameCode, row, matched) {
         cardId = inserted.id;
     }
 
-    const letter = (matched.name.trim()[0] || "?").toUpperCase();
-    const location = `${gameCode}.${letter}`;
-    await ensureLocationExists(location, "box");
+    await ensureLocationExists(location, status);
 
     const quantity = parseInt(row["Quantity"], 10) || 1;
     const copyRows = Array.from({ length: quantity }, () => ({
         card_id: cardId,
-        status: "box",
+        status: status,
         location_name: location,
         condition: row["Card Condition"] || null,
         grade: row["Grade"] || null,
