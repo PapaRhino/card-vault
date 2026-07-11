@@ -406,15 +406,15 @@ async function findOrCreateCard(card) {
     return inserted.id;
 }
 
-async function addCopyToLocation(cardId, locationName, status, statusEl) {
+async function addCopyToLocation(cardId, locationName, status, statusEl, bulkAddress = null) {
     statusEl.textContent = "Adding...";
     try {
         const { error } = await supabaseClient
             .from("copies")
-            .insert({ card_id: cardId, location_name: locationName, status: status });
+            .insert({ card_id: cardId, location_name: locationName, status: status, bulk_address: bulkAddress });
 
         if (error) throw error;
-        statusEl.textContent = `Added to ${locationName}`;
+        statusEl.textContent = `Added to ${locationName}${bulkAddress ? " (" + bulkAddress + ")" : ""}`;
         statusEl.style.color = "green";
     } catch (err) {
         console.error(err);
@@ -611,7 +611,7 @@ async function showCard(cardId) {
 
     document.getElementById("bulkAddBtn").onclick = async () => {
         const cardId = await findOrCreateCard(card);
-        addCopyToLocation(cardId, bulkLocation, "box", statusEl);
+        addCopyToLocation(cardId, "BULK", "box", statusEl, bulkLocation);
     };
 
     document.querySelectorAll(".quickLocBtn").forEach(btn => {
