@@ -28,10 +28,10 @@ export default function App() {
 
   const isAdmin = profile?.role === 'admin'
 
-  async function moveCopy(copyId, locationName, status) {
+  async function moveCopy(copyId, locationName, status, bulkAddress = null) {
     const { error } = await supabase
       .from('copies')
-      .update({ location_name: locationName, status })
+      .update({ location_name: locationName, status, bulk_address: locationName === 'BULK' ? bulkAddress : null })
       .eq('id', copyId)
 
     if (error) {
@@ -42,7 +42,9 @@ export default function App() {
 
     // Update both the modal's copy list and the main copies list so
     // filters/counts reflect the move immediately, no full reload needed.
-    const patch = cp => cp.id === copyId ? { ...cp, location_name: locationName, status } : cp
+    const patch = cp => cp.id === copyId
+      ? { ...cp, location_name: locationName, status, bulk_address: locationName === 'BULK' ? bulkAddress : null }
+      : cp
     setModalCopies(prev => prev.map(patch))
     setAllCopies(prev => prev.map(patch))
   }
@@ -75,7 +77,7 @@ export default function App() {
 
       const { data: copyData, error: copyErr } = await supabase
         .from('copies')
-        .select('id, card_id, status, location_name, condition, grade')
+        .select('id, card_id, status, location_name, bulk_address, condition, grade')
         .neq('status', 'sold_traded')
 
       if (copyErr) throw copyErr
