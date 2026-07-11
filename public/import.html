@@ -495,7 +495,6 @@ async function insertCard(gameCode, row, matched, location, status, bulkAddress)
         status: status,
         location_name: location,
         bulk_address: location === "BULK" ? bulkAddress : null,
-        condition: row["Card Condition"] || null,
         grade: row["Grade"] || null,
         cost_paid: parseFloat(row["Average Cost Paid"]) || null,
         market_price: marketPrice || null,
