@@ -161,7 +161,6 @@ function CopyGroup({ label, copies, isAdmin, locations, onMove, card }) {
           marginBottom: 4, fontSize: '0.8rem', color: 'var(--text-dim)',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-            <span>{c.condition ?? 'Unknown condition'}</span>
             {c.location_name && (
               <span style={{ color: 'var(--accent)' }}>
                 {c.location_name}{c.bulk_address ? ` — ${c.bulk_address}` : ''}
