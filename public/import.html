@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
@@ -238,6 +237,7 @@ async function runLookup() {
             if (!matched) {
                 statusCell.textContent = "No match found";
                 statusCell.className = "statusFail";
+                console.warn(`No match: [${game.label}] "${row["Product Name"]}" in "${row["Set"]}"`, row);
                 continue;
             }
 
@@ -414,15 +414,28 @@ async function lookupPTCG(row) {
         .select("id, name, set_name")
         .ilike("name", name);
 
-    if (error || !candidates || !candidates.length) return null;
+    if (error) {
+        console.error(`tcgdex_card_index query failed for "${name}":`, error);
+        return null;
+    }
+    if (!candidates || !candidates.length) {
+        console.warn(`No name match in tcgdex_card_index for "${name}"`);
+        return null;
+    }
 
     const exact = candidates.find(c => (c.set_name || "").toLowerCase() === setName);
+    if (!exact) {
+        console.warn(`"${name}" found in cache but not in set "${row["Set"]}" — candidate sets:`, candidates.map(c => c.set_name));
+    }
     const cardId = (exact || candidates[0]).id;
 
     // Pull full live detail — same enrichment the manual Add Cards tool uses,
     // so Collectr-imported Pokemon cards get identical data richness.
     const res = await fetch(`https://api.tcgdex.net/v2/en/cards/${cardId}`);
-    if (!res.ok) return null;
+    if (!res.ok) {
+        console.error(`Live TCGdex detail fetch failed for card id "${cardId}" (name: "${name}")`);
+        return null;
+    }
     const card = await res.json();
 
     return {
