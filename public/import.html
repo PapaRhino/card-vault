@@ -96,7 +96,7 @@
 
 <div class="pageBody">
     <h1 class="pageTitle">Import from Collectr CSV</h1>
-    <p class="subtle">Handles Magic: The Gathering, Yu-Gi-Oh, and Lorcana rows. Pokémon rows in the file are skipped — use the Add Cards tool for those.</p>
+    <p class="subtle">Handles Pokémon, Magic: The Gathering, Yu-Gi-Oh, and Lorcana rows. Pokémon cards are matched against your TCGdex cache and enriched with full live card data, same as the Add Cards tool.</p>
 
     <div class="panel">
         <input type="file" id="csvFile" accept=".csv" />
@@ -137,15 +137,43 @@
 
 <script>
 const SUPABASE_URL = "https://upfxsboakluohkuoagie.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_hmRzJXH_Be9TbdalcPO9fQ_xOrcOUhn";
+const SUPABASE_ANON_KEY = "PASTE_YOUR_ANON_PUBLIC_KEY_HERE";
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Maps Collectr's "Category" column to your game code + a friendly label
 const GAME_MAP = {
-    "Magic: The Gathering": { code: "MTG", label: "Magic" },
-    "YuGiOh":                { code: "YGO", label: "Yu-Gi-Oh" },
-    "Lorcana":                { code: "LOR", label: "Lorcana" },
+    "Pokemon":                { code: "Pokemon", label: "Pokémon", bulkPrefix: "PTCG" },
+    "Magic: The Gathering": { code: "MTG", label: "Magic", bulkPrefix: "MTG" },
+    "YuGiOh":                { code: "YGO", label: "Yu-Gi-Oh", bulkPrefix: "YGO" },
+    "Lorcana":                { code: "LOR", label: "Lorcana", bulkPrefix: "LOR" },
 };
+
+const TRAINER_TYPE_CODES = { Supporter: "Su", Item: "It", Tool: "To", Stadium: "St" };
+
+function stripSuffix(name, suffix) {
+    if (!suffix) return name;
+    const escaped = suffix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return name.replace(new RegExp(`\\s*${escaped}$`), "").trim();
+}
+
+function categoryCode(card) {
+    if (card.category === "Pokemon") return "P";
+    if (card.category === "Trainer") {
+        return TRAINER_TYPE_CODES[card.trainerType] || card.trainerType || "Tr";
+    }
+    if (card.category === "Energy") {
+        return card.energyType === "Special" ? "SE" : "E";
+    }
+    return "Unk";
+}
+
+function computeBulkLocationPTCG(card) {
+    const baseName = stripSuffix(card.name, card.suffix);
+    const letter = (baseName.trim()[0] || "?").toUpperCase();
+    const cat = categoryCode(card);
+    const ruleBoxSuffix = (card.category === "Pokemon" && card.suffix) ? ".2" : "";
+    return `PTCG.${cat}.${letter}${ruleBoxSuffix}`;
+}
 
 let parsedRows = [];
 
@@ -212,12 +240,15 @@ async function runLookup() {
                 continue;
             }
 
-            const letter = (matched.name.trim()[0] || "?").toUpperCase();
+            const bulkAddress = game.code === "Pokemon"
+                ? computeBulkLocationPTCG(matched.raw)
+                : `${game.code}.${(matched.name.trim()[0] || "?").toUpperCase()}`;
+
             reviewItems.push({
                 row, game: game.code, matched,
                 location: "BULK",
                 status: "box",
-                bulkAddress: `${game.code}.${letter}`,
+                bulkAddress,
             });
             statusCell.textContent = "Matched";
             statusCell.className = "statusOk";
@@ -365,10 +396,41 @@ async function runCommit() {
 // { name, image, rarity, artist, extra } object, or null if no match.
 // ─────────────────────────────
 async function lookupCard(gameCode, row) {
+    if (gameCode === "Pokemon") return lookupPTCG(row);
     if (gameCode === "MTG") return lookupMTG(row);
     if (gameCode === "YGO") return lookupYGO(row);
     if (gameCode === "LOR") return lookupLorcana(row);
     return null;
+}
+
+async function lookupPTCG(row) {
+    const name = row["Product Name"];
+    const setName = (row["Set"] || "").toLowerCase();
+
+    // Match against your cached index first — fast, no live API hit needed just to find the card
+    const { data: candidates, error } = await supabaseClient
+        .from("tcgdex_card_index")
+        .select("id, name, set_name")
+        .ilike("name", name);
+
+    if (error || !candidates || !candidates.length) return null;
+
+    const exact = candidates.find(c => (c.set_name || "").toLowerCase() === setName);
+    const cardId = (exact || candidates[0]).id;
+
+    // Pull full live detail — same enrichment the manual Add Cards tool uses,
+    // so Collectr-imported Pokemon cards get identical data richness.
+    const res = await fetch(`https://api.tcgdex.net/v2/en/cards/${cardId}`);
+    if (!res.ok) return null;
+    const card = await res.json();
+
+    return {
+        raw: card,
+        name: card.name,
+        image: card.image ? card.image + "/high.webp" : null,
+        rarity: card.rarity,
+        artist: card.illustrator,
+    };
 }
 
 async function lookupMTG(row) {
@@ -454,38 +516,9 @@ async function insertCard(gameCode, row, matched, location, status, bulkAddress)
     const marketPriceKey = Object.keys(row).find(k => k.startsWith("Market Price"));
     const marketPrice = marketPriceKey ? parseFloat(row[marketPriceKey]) : null;
 
-    const { data: existing } = await supabaseClient
-        .from("cards")
-        .select("id")
-        .eq("game", gameCode)
-        .eq("card_name", matched.name)
-        .eq("set_name", row["Set"])
-        .maybeSingle();
-
-    let cardId = existing?.id;
-
-    if (!cardId) {
-        const { data: inserted, error: insertErr } = await supabaseClient
-            .from("cards")
-            .insert({
-                game: gameCode,
-                card_name: matched.name,
-                set_name: row["Set"] || null,
-                card_number: row["Card Number"] || null,
-                rarity: matched.rarity || row["Rarity"] || null,
-                artist: matched.artist || null,
-                image_url: matched.image,
-                base_name: matched.name,
-                category: gameCode,
-                card_data: matched.extra || null,
-                needs_review: false,
-            })
-            .select("id")
-            .single();
-
-        if (insertErr) throw insertErr;
-        cardId = inserted.id;
-    }
+    const cardId = gameCode === "Pokemon"
+        ? await findOrCreatePTCGCard(matched.raw)
+        : await findOrCreateGenericCard(gameCode, row, matched);
 
     await ensureLocationExists(location, status);
 
@@ -495,6 +528,7 @@ async function insertCard(gameCode, row, matched, location, status, bulkAddress)
         status: status,
         location_name: location,
         bulk_address: location === "BULK" ? bulkAddress : null,
+        variant: row["Variance"] || null,
         grade: row["Grade"] || null,
         cost_paid: parseFloat(row["Average Cost Paid"]) || null,
         market_price: marketPrice || null,
@@ -504,6 +538,83 @@ async function insertCard(gameCode, row, matched, location, status, bulkAddress)
 
     const { error: copyErr } = await supabaseClient.from("copies").insert(copyRows);
     if (copyErr) throw copyErr;
+}
+
+// Same schema/dedup pattern as the manual Add Cards tool — matched by tcgdex_id,
+// so a card already entered manually won't get duplicated by a Collectr import.
+async function findOrCreatePTCGCard(card) {
+    const { data: existing } = await supabaseClient
+        .from("cards")
+        .select("id")
+        .eq("tcgdex_id", card.id)
+        .maybeSingle();
+
+    if (existing) return existing.id;
+
+    const baseName = stripSuffix(card.name, card.suffix);
+    const ruleBox = card.category === "Pokemon" && Boolean(card.suffix);
+
+    const { data: inserted, error: insertErr } = await supabaseClient
+        .from("cards")
+        .insert({
+            game: "Pokemon",
+            card_name: card.name,
+            set_name: card.set?.name || null,
+            set_code: card.set?.id || null,
+            card_number: card.localId || null,
+            rarity: card.rarity || null,
+            pokemon_type: (card.types && card.types[0]) || null,
+            trainer_subtype: card.trainerType || null,
+            pokedex_number: (card.dexId && card.dexId[0]) || null,
+            artist: card.illustrator || null,
+            image_url: card.image ? card.image + "/high.webp" : null,
+            needs_review: false,
+            tcgdex_id: card.id,
+            base_name: baseName,
+            category: card.category,
+            rule_box: ruleBox,
+            card_data: card,
+        })
+        .select("id")
+        .single();
+
+    if (insertErr) throw insertErr;
+    return inserted.id;
+}
+
+// Generic path for MTG / Yu-Gi-Oh / Lorcana — dedup by game+name+set since
+// those APIs don't give a stable id the same way TCGdex's card.id does.
+async function findOrCreateGenericCard(gameCode, row, matched) {
+    const { data: existing } = await supabaseClient
+        .from("cards")
+        .select("id")
+        .eq("game", gameCode)
+        .eq("card_name", matched.name)
+        .eq("set_name", row["Set"])
+        .maybeSingle();
+
+    if (existing) return existing.id;
+
+    const { data: inserted, error: insertErr } = await supabaseClient
+        .from("cards")
+        .insert({
+            game: gameCode,
+            card_name: matched.name,
+            set_name: row["Set"] || null,
+            card_number: row["Card Number"] || null,
+            rarity: matched.rarity || row["Rarity"] || null,
+            artist: matched.artist || null,
+            image_url: matched.image,
+            base_name: matched.name,
+            category: gameCode,
+            card_data: matched.extra || null,
+            needs_review: false,
+        })
+        .select("id")
+        .single();
+
+    if (insertErr) throw insertErr;
+    return inserted.id;
 }
 
 async function ensureLocationExists(name, status) {
