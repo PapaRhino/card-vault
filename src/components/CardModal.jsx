@@ -166,6 +166,7 @@ function CopyGroup({ label, copies, isAdmin, locations, onMove, card }) {
                 {c.location_name}{c.bulk_address ? ` — ${c.bulk_address}` : ''}
               </span>
             )}
+            {c.variant && c.variant !== 'Normal' && <span>{c.variant}</span>}
             {c.grade && c.grade !== 'Ungraded' && <span>{c.grade}</span>}
             {isAdmin && (
               <button
